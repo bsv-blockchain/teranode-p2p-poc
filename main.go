@@ -22,7 +22,7 @@ func main() {
 	// Initialize the Teranode application
 	config := p2p.P2PConfig{
 		ProcessName:     "teranode-p2p",
-		Port:            18333,
+		Port:            9901,
 		ListenAddresses: []string{"127.0.0.1"},
 		Advertise:       true,
 		UsePrivateDHT:   true,
