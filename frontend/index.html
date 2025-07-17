@@ -4,36 +4,21 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>P2P Message Viewer</title>
-  <style>
-    body { font-family: sans-serif; background: #f4f4f4; margin: 0; padding: 0; }
-    .container { max-width: 800px; margin: 30px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #0001; padding: 24px; }
-    h1 { margin-top: 0; }
-    form { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
-    form input, form button { padding: 8px; font-size: 1em; }
-    .messages { max-height: 500px; overflow-y: auto; border: 1px solid #ddd; border-radius: 6px; background: #fafbfc; padding: 12px; }
-    .msg { padding: 8px 0; border-bottom: 1px solid #eee; }
-    .msg:last-child { border-bottom: none; }
-    .msg-topic { color: #1a73e8; font-weight: bold; }
-    .msg-peer { color: #555; font-size: 0.95em; }
-    .msg-time { color: #999; font-size: 0.9em; margin-left: 8px; }
-    .msg-data { margin: 4px 0 0 0; font-family: monospace; word-break: break-all; }
-    .realtime-badge { background: #1a73e8; color: #fff; border-radius: 4px; padding: 2px 8px; font-size: 0.85em; margin-left: 8px; }
-    .search-bar { flex: 1; min-width: 120px; }
-    .status { margin: 10px 0 0 0; font-size: 0.95em; color: #1a73e8; }
-  </style>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-  <div class="container">
-    <h1>P2P Message Viewer <span id="ws-status" class="realtime-badge">Connecting...</span></h1>
-    <form id="search-form">
-      <input class="search-bar" type="text" id="topic" placeholder="Topic (optional)">
-      <input class="search-bar" type="text" id="peer" placeholder="Peer (optional)">
-      <input class="search-bar" type="number" id="limit" placeholder="Limit (default 100)" min="1" max="500">
-      <button type="submit">Search</button>
-      <button type="button" id="clear-btn">Clear</button>
+<body class="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+  <div class="container w-full">
+    <h1 class="text-2xl font-bold text-blue-800 mb-2 flex items-center gap-2">P2P Message Viewer <span id="ws-status" class="realtime-badge bg-blue-600 text-white rounded px-2 py-0.5 text-xs">Connecting...</span></h1>
+    <form id="search-form" class="flex flex-wrap gap-2 mb-4">
+      <input class="search-bar flex-1 min-w-[120px] border border-gray-300 rounded px-2 py-1 focus:outline-blue-500" type="text" id="topic" placeholder="Topic (optional)">
+      <input class="search-bar flex-1 min-w-[120px] border border-gray-300 rounded px-2 py-1 focus:outline-blue-500" type="text" id="peer" placeholder="Peer (optional)">
+      <input class="search-bar w-28 border border-gray-300 rounded px-2 py-1 focus:outline-blue-500" type="number" id="limit" placeholder="Limit (default 100)" min="1" max="500">
+      <button type="submit" class="bg-blue-600 text-white px-4 py-1 rounded hover:bg-blue-700">Search</button>
+      <button type="button" id="clear-btn" class="bg-gray-200 text-gray-700 px-4 py-1 rounded hover:bg-gray-300">Clear</button>
     </form>
-    <div class="messages" id="messages"></div>
-    <div class="status" id="status"></div>
+    <div class="messages flex flex-col gap-4 max-h-[500px] overflow-y-auto" id="messages"></div>
+    <div class="status mt-2 text-blue-700 text-sm" id="status"></div>
   </div>
   <script>
     const wsStatus = document.getElementById('ws-status');
@@ -50,17 +35,21 @@
     function renderMessages(msgs) {
       messagesDiv.innerHTML = '';
       if (!msgs.length) {
-        messagesDiv.innerHTML = '<div style="color:#aaa">No messages found.</div>';
+        messagesDiv.innerHTML = '<div class="text-gray-400 text-center">No messages found.</div>';
         return;
       }
       msgs.forEach(msg => {
         const el = document.createElement('div');
         el.className = 'msg';
         el.innerHTML = `
-          <span class="msg-topic">${msg.Topic}</span>
-          <span class="msg-peer">from ${msg.Peer}</span>
-          <span class="msg-time">${formatTime(msg.ReceivedAt)}</span>
-          <div class="msg-data">${msg.Data}</div>
+          <div class="bg-white rounded-xl shadow p-4 flex flex-col gap-2 border border-gray-100">
+            <div class="flex flex-wrap items-center gap-2 mb-1">
+              <span class="msg-topic font-bold text-blue-600 text-lg">${msg.Topic}</span>
+              <span class="msg-peer text-gray-500 text-sm">from <span class="font-semibold">${msg.Peer}</span></span>
+              <span class="msg-time text-gray-400 text-xs ml-auto">${formatTime(msg.ReceivedAt)}</span>
+            </div>
+            <div class="msg-data bg-gray-50 rounded px-2 py-1 font-mono text-gray-800 text-sm break-all whitespace-pre-line">${msg.Data}</div>
+          </div>
         `;
         messagesDiv.appendChild(el);
       });
@@ -76,16 +65,16 @@
       ws = new WebSocket(`ws://${window.location.hostname}:8080/ws`);
       ws.onopen = () => {
         wsStatus.textContent = 'Live';
-        wsStatus.style.background = '#28a745';
+        wsStatus.className = 'realtime-badge bg-green-600 text-white rounded px-2 py-0.5 text-xs';
       };
       ws.onclose = () => {
         wsStatus.textContent = 'Disconnected';
-        wsStatus.style.background = '#e63946';
+        wsStatus.className = 'realtime-badge bg-red-600 text-white rounded px-2 py-0.5 text-xs';
         setTimeout(connectWebSocket, 2000); // try reconnect
       };
       ws.onerror = () => {
         wsStatus.textContent = 'Error';
-        wsStatus.style.background = '#e63946';
+        wsStatus.className = 'realtime-badge bg-red-600 text-white rounded px-2 py-0.5 text-xs';
       };
       ws.onmessage = (event) => {
         const msg = JSON.parse(event.data);

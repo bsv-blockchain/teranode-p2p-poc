@@ -91,8 +91,49 @@ go run main.go
   - Search/filter messages by topic or peer (via API)
 
 ## Project Structure
-- `main.go`: Entry point, creates and runs the P2P node.
+- `main.go`: Entry point, creates and runs the P2P node, and wires up HTTP/websocket servers.
+- `http.go`: Implements the HTTP REST API for message search and serves the static frontend.
+- `websocket.go`: Implements the websocket server and manages broadcasting messages to clients.
+- `model.go`: Message model for GORM/SQLite.
+- `frontend/index.html`: Lightweight UI for realtime and historical message viewing.
+- `config.yaml`: Configuration file (see above).
 - `go.mod`, `go.sum`: Go module dependencies.
+
+## Example API Usage
+
+### Search messages by topic:
+```bash
+curl 'http://localhost:8080/messages?topic=bitcoin/mainnet-block'
+```
+
+### Search messages by peer:
+```bash
+curl 'http://localhost:8080/messages?peer=peer1'
+```
+
+### Paginate results (limit & offset):
+```bash
+curl 'http://localhost:8080/messages?limit=10&offset=20'
+```
+
+### Combine filters:
+```bash
+curl 'http://localhost:8080/messages?topic=bitcoin/mainnet-block&peer=peer1&limit=5'
+```
+
+### Connect to WebSocket (JS example):
+```js
+const ws = new WebSocket("ws://localhost:8080/ws");
+ws.onmessage = (event) => {
+  const msg = JSON.parse(event.data);
+  // handle msg
+};
+```
+
+### Connect to WebSocket (CLI example with wscat):
+```bash
+npx wscat -c ws://localhost:8080/ws
+```
 
 ## Example Topics
 - `bitcoin/mainnet-bestblock`
