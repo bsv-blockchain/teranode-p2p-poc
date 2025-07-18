@@ -1,10 +1,10 @@
-# Teranode P2P
+# Teranode P2P POC
 
-Teranode P2P is a peer-to-peer networking component for the Bitcoin SV Teranode project. It now includes message persistence, a realtime websocket API, and a lightweight frontend for viewing/searching messages.
+Teranode P2P is a peer-to-peer networking component for the Bitcoin SV ecosystem. It now includes message persistence, a realtime websocket API, and a lightweight frontend for viewing/searching messages.
 
 ## Features
 
-- **Decentralized Networking:** Connects to other Teranode nodes using a secure, private DHT (Distributed Hash Table).
+- **Decentralized Networking:** Connects to other nodes using a secure, private DHT (Distributed Hash Table).
 - **Configurable Topics:** Subscribes to and handles key Bitcoin SV network topics (blocks, transactions, mining status, etc.).
 - **Message Persistence:** All received messages are stored in a SQLite database (configurable path).
 - **Realtime Websocket:** All new messages are broadcast to connected websocket clients.
@@ -20,7 +20,7 @@ Teranode P2P is a peer-to-peer networking component for the Bitcoin SV Teranode 
 ### Installation
 Clone the repository and ensure dependencies are installed:
 ```bash
-git clone https://github.com/bitcoin-sv/teranode-p2p.git
+git clone https://github.com/bsv-blockchain/teranode-p2p.git
 cd teranode-p2p
 go mod tidy
 ```
@@ -91,10 +91,11 @@ go run main.go
   - Search/filter messages by topic or peer (via API)
 
 ## Project Structure
-- `main.go`: Entry point, creates and runs the P2P node, and wires up HTTP/websocket servers.
-- `http.go`: Implements the HTTP REST API for message search and serves the static frontend.
-- `websocket.go`: Implements the websocket server and manages broadcasting messages to clients.
-- `model.go`: Message model for GORM/SQLite.
+- `cmd/main.go`: Entry point, creates and runs the P2P node, and wires up HTTP/websocket servers.
+- `pkg/http/server.go`: Implements the HTTP REST API for message search and serves the static frontend.
+- `pkg/websocket/broadcast.go`: Implements the websocket server and manages broadcasting messages to clients.
+- `pkg/model/message.go`: Message model for GORM/SQLite.
+- `pkg/p2p/node.go`, `pkg/p2p/interface.go`, `pkg/p2p/types.go`: P2P networking core and interfaces.
 - `frontend/index.html`: Lightweight UI for realtime and historical message viewing.
 - `config.yaml`: Configuration file (see above).
 - `go.mod`, `go.sum`: Go module dependencies.
@@ -144,8 +145,7 @@ npx wscat -c ws://localhost:8080/ws
 - `bitcoin/mainnet-rejected_tx`
 
 ## License
-This project is part of the Bitcoin SV Teranode initiative. See [Bitcoin SV License](https://bitcoinsv.io/terms-of-use/) for details.
+This project is part of the BSV Blockchain initiative. See [Bitcoin SV License](https://bitcoinsv.io/terms-of-use/) for details.
 
 ## Credits
-- [Bitcoin SV Teranode](https://github.com/bitcoin-sv/teranode)
 - BSV Blockchain community

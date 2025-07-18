@@ -3,11 +3,14 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/bsv-blockchain/teranode-p2p-poc/pkg/http"
+	"github.com/bsv-blockchain/teranode-p2p-poc/pkg/model"
+	"github.com/bsv-blockchain/teranode-p2p-poc/pkg/websocket"
+	"github.com/sirupsen/logrus"
+	"strings"
 	"time"
 
-	"github.com/bitcoin-sv/teranode/services/p2p"
-	"github.com/bitcoin-sv/teranode/settings"
-	"github.com/bitcoin-sv/teranode/ulogger"
+	"github.com/bsv-blockchain/teranode-p2p-poc/pkg/p2p"
 	"github.com/spf13/viper"
 
 	"gorm.io/driver/sqlite"
@@ -16,12 +19,15 @@ import (
 
 func main() {
 	ctx := context.Background()
-	log := ulogger.New("teranode-p2p")
+	log := logrus.New()
 
 	// Initialize Viper
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath(".")
+	viper.SetEnvPrefix("teranode_p2p")
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	viper.AutomaticEnv()
 	if err := viper.ReadInConfig(); err != nil {
 		panic(fmt.Errorf("fatal error reading config file: %w", err))
 	}
@@ -38,7 +44,7 @@ func main() {
 		log.Fatalf("failed to connect to database: %v", err)
 	}
 	// Auto-migrate Message schema
-	err = db.AutoMigrate(&Message{})
+	err = db.AutoMigrate(&model.Message{})
 	if err != nil {
 		log.Fatalf("failed to migrate database: %v", err)
 	}
@@ -53,23 +59,18 @@ func main() {
 	usePrivateDHT := viper.GetBool("p2p.use_private_dht")
 	topics := viper.GetStringSlice("topics")
 
-	nSettings := settings.NewSettings()
-	nSettings.P2P = settings.P2PSettings{
-		BootstrapAddresses: bootstrapAddresses,
+	config := p2p.P2PConfig{
+		ProcessName:        "teranode-p2p",
+		Port:               port,
+		ListenAddresses:    listenAddresses,
+		Advertise:          advertise,
+		UsePrivateDHT:      usePrivateDHT,
 		SharedKey:          sharedKey,
+		BootstrapAddresses: bootstrapAddresses,
 		DHTProtocolID:      dhtProtocolID,
 	}
 
-	config := p2p.P2PConfig{
-		ProcessName:     "teranode-p2p",
-		Port:            port,
-		ListenAddresses: listenAddresses,
-		Advertise:       advertise,
-		UsePrivateDHT:   usePrivateDHT,
-		SharedKey:       sharedKey,
-	}
-
-	node, err := p2p.NewP2PNode(ctx, log, nSettings, config, nil)
+	node, err := p2p.NewP2PNode(ctx, log, config)
 	if err != nil {
 		panic(err)
 	}
@@ -80,7 +81,7 @@ func main() {
 	for _, topic := range topics {
 		topicCopy := topic // capture range variable
 		err = node.SetTopicHandler(ctx, topicCopy, func(ctx context.Context, data []byte, peer string) {
-			msg := Message{
+			msg := model.Message{
 				Topic:      topicCopy,
 				Data:       string(data),
 				Peer:       peer,
@@ -90,7 +91,7 @@ func main() {
 				log.Errorf("Failed to store message for topic %s: %v", topicCopy, err)
 			} else {
 				log.Infof("Stored message for topic %s from %s", topicCopy, peer)
-				broadcastMessage(msg)
+				websocket.BroadcastMessage(msg)
 			}
 		})
 		if err != nil {
@@ -99,7 +100,7 @@ func main() {
 	}
 
 	// Start HTTP server for querying messages
-	go initHttpServer(log, db)
+	go http.InitServer(log, db)
 
 	go func() {
 		ticker := time.NewTicker(2 * time.Minute)
@@ -115,8 +116,8 @@ func main() {
 }
 
 // GetMessagesByTopic returns all messages for a given topic
-func GetMessagesByTopic(db *gorm.DB, topic string) ([]Message, error) {
-	var messages []Message
+func GetMessagesByTopic(db *gorm.DB, topic string) ([]model.Message, error) {
+	var messages []model.Message
 	err := db.Where("topic = ?", topic).Order("received_at asc").Find(&messages).Error
 	return messages, err
 }

@@ -1,15 +1,17 @@
-package main
+package http
 
 import (
 	"encoding/json"
-	"github.com/bitcoin-sv/teranode/ulogger"
+	"github.com/bsv-blockchain/teranode-p2p-poc/pkg/model"
+	tWebsocket "github.com/bsv-blockchain/teranode-p2p-poc/pkg/websocket"
 	"github.com/gorilla/websocket"
+	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 	"net/http"
 	"strconv"
 )
 
-func initHttpServer(log ulogger.Logger, db *gorm.DB) {
+func InitServer(log *logrus.Logger, db *gorm.DB) {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {
 			http.ServeFile(w, r, "./frontend/index.html")
@@ -32,15 +34,15 @@ func initHttpServer(log ulogger.Logger, db *gorm.DB) {
 		if err != nil {
 			return
 		}
-		wsClients.mu.Lock()
-		wsClients.conns[conn] = true
-		wsClients.mu.Unlock()
+		tWebsocket.WsClients.Mu.Lock()
+		tWebsocket.WsClients.Conns[conn] = true
+		tWebsocket.WsClients.Mu.Unlock()
 		for {
 			// Just read to detect disconnects
 			if _, _, err := conn.NextReader(); err != nil {
-				wsClients.mu.Lock()
-				delete(wsClients.conns, conn)
-				wsClients.mu.Unlock()
+				tWebsocket.WsClients.Mu.Lock()
+				delete(tWebsocket.WsClients.Conns, conn)
+				tWebsocket.WsClients.Mu.Unlock()
 				conn.Close()
 				break
 			}
@@ -68,7 +70,7 @@ func initHttpServer(log ulogger.Logger, db *gorm.DB) {
 			}
 		}
 
-		var messages []Message
+		var messages []model.Message
 		query := db.Order("received_at asc").Limit(limit).Offset(offset)
 		if topic != "" {
 			query = query.Where("topic = ?", topic)
