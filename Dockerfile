@@ -28,7 +28,7 @@ RUN CGO_ENABLED=1 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -o te
 FROM registry.access.redhat.com/ubi9-minimal:9.3
 WORKDIR /
 COPY --from=builder /workspace/teranode-p2p-poc .
-COPY frontend .
+COPY frontend ./frontend
 COPY config.yaml .
 USER 65532:65532
 
