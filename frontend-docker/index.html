@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>P2P Message Viewer</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="max-h-screen bg-gray-100 flex items-center justify-center p-4">
+  <div class="container w-full">
+    <h1 class="text-2xl font-bold text-blue-800 mb-2 flex items-center gap-2">P2P Message Viewer <span id="ws-status" class="realtime-badge bg-blue-600 text-white rounded px-2 py-0.5 text-xs">Connecting...</span></h1>
+    <form id="search-form" class="flex flex-wrap gap-2 mb-4">
+      <input class="search-bar flex-1 min-w-[120px] border border-gray-300 rounded px-2 py-1 focus:outline-blue-500" type="text" id="topic" placeholder="Topic (optional)">
+      <input class="search-bar flex-1 min-w-[120px] border border-gray-300 rounded px-2 py-1 focus:outline-blue-500" type="text" id="peer" placeholder="Peer (optional)">
+      <input class="search-bar w-28 border border-gray-300 rounded px-2 py-1 focus:outline-blue-500" type="number" id="limit" placeholder="Limit (default 100)" min="1" max="500">
+      <button type="submit" class="bg-blue-600 text-white px-4 py-1 rounded hover:bg-blue-700">Search</button>
+      <button type="button" id="clear-btn" class="bg-gray-200 text-gray-700 px-4 py-1 rounded hover:bg-gray-300">Clear</button>
+    </form>
+    <div class="messages flex flex-col gap-4 max-h-[500px] overflow-y-auto" id="messages"></div>
+    <div class="status mt-2 text-blue-700 text-sm" id="status"></div>
+  </div>
+  <script>
+    const wsStatus = document.getElementById('ws-status');
+    const messagesDiv = document.getElementById('messages');
+    const statusDiv = document.getElementById('status');
+    let ws;
+    let allMessages = [];
+
+    function formatTime(ts) {
+      const d = new Date(ts);
+      return d.toLocaleString();
+    }
+
+    function renderMessages(msgs) {
+      messagesDiv.innerHTML = '';
+      if (!msgs.length) {
+        messagesDiv.innerHTML = '<div class="text-gray-400 text-center">No messages found.</div>';
+        return;
+      }
+      msgs.forEach(msg => {
+        const el = document.createElement('div');
+        el.className = 'msg';
+        el.innerHTML = `
+          <div class="bg-white rounded-xl shadow p-4 flex flex-col gap-2 border border-gray-100">
+            <div class="flex flex-wrap items-center gap-2 mb-1">
+              <span class="msg-topic font-bold text-blue-600 text-lg">${msg.Topic}</span>
+              <span class="msg-peer text-gray-500 text-sm">from <span class="font-semibold">${msg.Peer}</span></span>
+              <span class="msg-time text-gray-400 text-xs ml-auto">${formatTime(msg.ReceivedAt)}</span>
+            </div>
+            <div class="msg-data bg-gray-50 rounded px-2 py-1 font-mono text-gray-800 text-sm break-all whitespace-pre-line">${msg.Data}</div>
+          </div>
+        `;
+        messagesDiv.appendChild(el);
+      });
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    function addRealtimeMessage(msg) {
+      allMessages.push(msg);
+      renderMessages(allMessages);
+    }
+
+    function connectWebSocket() {
+      ws = new WebSocket(`wss://${window.location.hostname}:8080/ws`);
+      ws.onopen = () => {
+        wsStatus.textContent = 'Live';
+        wsStatus.className = 'realtime-badge bg-green-600 text-white rounded px-2 py-0.5 text-xs';
+      };
+      ws.onclose = () => {
+        wsStatus.textContent = 'Disconnected';
+        wsStatus.className = 'realtime-badge bg-red-600 text-white rounded px-2 py-0.5 text-xs';
+        setTimeout(connectWebSocket, 2000); // try reconnect
+      };
+      ws.onerror = () => {
+        wsStatus.textContent = 'Error';
+        wsStatus.className = 'realtime-badge bg-red-600 text-white rounded px-2 py-0.5 text-xs';
+      };
+      ws.onmessage = (event) => {
+        const msg = JSON.parse(event.data);
+        statusDiv.textContent = 'New realtime message received.';
+        addRealtimeMessage(msg);
+      };
+    }
+
+    async function searchMessages(e) {
+      if (e) e.preventDefault();
+      const topic = document.getElementById('topic').value.trim();
+      const peer = document.getElementById('peer').value.trim();
+      const limit = document.getElementById('limit').value.trim();
+      let url = `https://${window.location.hostname}:8080/messages?`;
+      if (topic) url += `topic=${encodeURIComponent(topic)}&`;
+      if (peer) url += `peer=${encodeURIComponent(peer)}&`;
+      if (limit) url += `limit=${encodeURIComponent(limit)}&`;
+      statusDiv.textContent = 'Searching...';
+      try {
+        const res = await fetch(url);
+        const msgs = await res.json();
+        allMessages = msgs;
+        renderMessages(msgs);
+        statusDiv.textContent = `Found ${msgs.length} messages.`;
+      } catch (err) {
+        statusDiv.textContent = 'Error fetching messages.';
+      }
+    }
+
+    document.getElementById('search-form').onsubmit = searchMessages;
+    document.getElementById('clear-btn').onclick = (e) => {
+      document.getElementById('topic').value = '';
+      document.getElementById('peer').value = '';
+      document.getElementById('limit').value = '';
+      allMessages = [];
+      renderMessages([]);
+      statusDiv.textContent = '';
+    };
+
+    // Initial load
+    searchMessages();
+    connectWebSocket();
+  </script>
+</body>
+</html>
