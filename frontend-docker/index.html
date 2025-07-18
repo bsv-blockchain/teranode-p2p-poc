@@ -62,7 +62,7 @@
     }
 
     function connectWebSocket() {
-      ws = new WebSocket(`wss://${window.location.hostname}:8080/ws`);
+      ws = new WebSocket(`wss://${window.location.hostname}/ws`);
       ws.onopen = () => {
         wsStatus.textContent = 'Live';
         wsStatus.className = 'realtime-badge bg-green-600 text-white rounded px-2 py-0.5 text-xs';
@@ -88,7 +88,7 @@
       const topic = document.getElementById('topic').value.trim();
       const peer = document.getElementById('peer').value.trim();
       const limit = document.getElementById('limit').value.trim();
-      let url = `https://${window.location.hostname}:8080/messages?`;
+      let url = `https://${window.location.hostname}/messages?`;
       if (topic) url += `topic=${encodeURIComponent(topic)}&`;
       if (peer) url += `peer=${encodeURIComponent(peer)}&`;
       if (limit) url += `limit=${encodeURIComponent(limit)}&`;
