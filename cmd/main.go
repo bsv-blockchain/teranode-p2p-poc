@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bsv-blockchain/teranode-p2p-poc/pkg/p2p"
+	"github.com/bsv-blockchain/go-p2p"
 	"github.com/spf13/viper"
 
 	"gorm.io/driver/sqlite"
@@ -59,8 +59,8 @@ func main() {
 	usePrivateDHT := viper.GetBool("p2p.use_private_dht")
 	topics := viper.GetStringSlice("topics")
 
-	config := p2p.P2PConfig{
-		ProcessName:        "teranode-p2p",
+	config := p2p.Config{
+		ProcessName:        "teranode-p2p-poc",
 		Port:               port,
 		ListenAddresses:    listenAddresses,
 		Advertise:          advertise,
