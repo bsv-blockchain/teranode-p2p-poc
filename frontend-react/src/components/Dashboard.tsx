@@ -183,18 +183,23 @@ export const Dashboard: React.FC = () => {
         {/* Top Header with Network Selection */}
         <div className="mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-            <div className="flex items-center gap-2 sm:gap-4">
-              <img 
-                src="/bsv-logo.svg" 
-                alt="BSV Association" 
-                className="h-6 sm:h-8 w-auto"
-              />
-              <div className="border-l-2 border-gray-300 pl-2 sm:pl-4">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+              <div className="flex items-center justify-between sm:block">
+                <img 
+                  src="/bsv-logo.svg" 
+                  alt="BSV Association" 
+                  className="h-6 sm:h-8 w-auto"
+                />
+                <div className="sm:hidden">
+                  <WebSocketStatusComponent status={wsStatus} onReconnect={reconnect} />
+                </div>
+              </div>
+              <div className="sm:border-l-2 sm:border-gray-300 sm:pl-4">
                 <h1 className="text-xl sm:text-3xl font-display font-bold text-bsv-primary">Teranode P2P Monitor</h1>
                 <p className="text-xs sm:text-base mt-0.5 sm:mt-1 text-bsv-text">Real-time Bitcoin SV network message monitoring</p>
               </div>
             </div>
-            <div className="self-end sm:self-center">
+            <div className="hidden sm:block">
               <WebSocketStatusComponent status={wsStatus} onReconnect={reconnect} />
             </div>
           </div>
