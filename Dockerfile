@@ -1,3 +1,11 @@
+# Build React frontend
+FROM node:18-alpine AS frontend-builder
+WORKDIR /app/frontend-react
+COPY frontend-react/package*.json ./
+RUN npm ci
+COPY frontend-react/ ./
+RUN npm run build
+
 # Build the manager binary
 FROM golang:1.24 AS builder
 ARG TARGETOS
@@ -28,6 +36,7 @@ RUN CGO_ENABLED=1 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -o te
 FROM registry.access.redhat.com/ubi9-minimal:9.3
 WORKDIR /
 COPY --from=builder /workspace/teranode-p2p-poc .
+COPY --from=frontend-builder /app/frontend-react/build ./frontend-react/build
 COPY frontend-docker ./frontend
 COPY config.yaml .
 USER 65532:65532
