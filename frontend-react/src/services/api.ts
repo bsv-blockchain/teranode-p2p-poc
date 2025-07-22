@@ -1,4 +1,18 @@
-import { Message, SearchFilters, ApiResponse, PaginationInfo, MessageStats } from '../types/Message';
+import { 
+  Message, 
+  SearchFilters, 
+  ApiResponse, 
+  PaginationInfo, 
+  MessageStats,
+  Network,
+  MessageType,
+  Block,
+  MiningOn,
+  Subtree,
+  Handshake,
+  RejectedTx,
+  DashboardFilters
+} from '../types/Message';
 
 const API_BASE_URL = `http://${window.location.hostname}:8080`;
 
@@ -49,6 +63,209 @@ export class ApiService {
       console.error('Error fetching messages:', error);
       throw error;
     }
+  }
+
+  static async getNetworks(): Promise<Network[]> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/networks`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching networks:', error);
+      return ['mainnet', 'testnet', 'regtest', 'stn', 'teratestnet', 'tstn'];
+    }
+  }
+
+  static async getMessageTypes(): Promise<MessageType[]> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/message-types`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching message types:', error);
+      return ['bestblock', 'block', 'mining_on', 'subtree', 'handshake', 'rejected_tx'];
+    }
+  }
+
+  static async getBlocks(filters: DashboardFilters): Promise<{ data: Block[], pagination: PaginationInfo }> {
+    const params = new URLSearchParams();
+    const page = filters.page || 1;
+    const limit = filters.limit || 20;
+    const offset = (page - 1) * limit;
+    
+    if (filters.network && filters.network !== 'all') params.append('network', filters.network);
+    if (filters.peer) params.append('peer_id', filters.peer);
+    params.append('limit', limit.toString());
+    params.append('offset', offset.toString());
+    
+    const response = await fetch(`${API_BASE_URL}/blocks?${params.toString()}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+    }
+    const data: Block[] = await response.json();
+    
+    return {
+      data: data || [],
+      pagination: this.createPagination(data?.length || 0, page, limit, offset)
+    };
+  }
+
+  static async getMiningMessages(filters: DashboardFilters): Promise<{ data: MiningOn[], pagination: PaginationInfo }> {
+    const params = new URLSearchParams();
+    const page = filters.page || 1;
+    const limit = filters.limit || 20;
+    const offset = (page - 1) * limit;
+    
+    if (filters.network && filters.network !== 'all') params.append('network', filters.network);
+    if (filters.peer) params.append('peer_id', filters.peer);
+    params.append('limit', limit.toString());
+    params.append('offset', offset.toString());
+    
+    const response = await fetch(`${API_BASE_URL}/mining?${params.toString()}`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data: MiningOn[] = await response.json();
+    
+    return {
+      data: data || [],
+      pagination: this.createPagination(data?.length || 0, page, limit, offset)
+    };
+  }
+
+  static async getSubtrees(filters: DashboardFilters): Promise<{ data: Subtree[], pagination: PaginationInfo }> {
+    const params = new URLSearchParams();
+    const page = filters.page || 1;
+    const limit = filters.limit || 20;
+    const offset = (page - 1) * limit;
+    
+    if (filters.network && filters.network !== 'all') params.append('network', filters.network);
+    if (filters.peer) params.append('peer_id', filters.peer);
+    params.append('limit', limit.toString());
+    params.append('offset', offset.toString());
+    
+    const response = await fetch(`${API_BASE_URL}/subtrees?${params.toString()}`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data: Subtree[] = await response.json();
+    
+    return {
+      data: data || [],
+      pagination: this.createPagination(data?.length || 0, page, limit, offset)
+    };
+  }
+
+  static async getHandshakes(filters: DashboardFilters): Promise<{ data: Handshake[], pagination: PaginationInfo }> {
+    const params = new URLSearchParams();
+    const page = filters.page || 1;
+    const limit = filters.limit || 20;
+    const offset = (page - 1) * limit;
+    
+    if (filters.network && filters.network !== 'all') params.append('network', filters.network);
+    if (filters.peer) params.append('peer_id', filters.peer);
+    params.append('limit', limit.toString());
+    params.append('offset', offset.toString());
+    
+    const response = await fetch(`${API_BASE_URL}/handshakes?${params.toString()}`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data: Handshake[] = await response.json();
+    
+    return {
+      data: data || [],
+      pagination: this.createPagination(data?.length || 0, page, limit, offset)
+    };
+  }
+
+  static async getRejectedTransactions(filters: DashboardFilters): Promise<{ data: RejectedTx[], pagination: PaginationInfo }> {
+    const params = new URLSearchParams();
+    const page = filters.page || 1;
+    const limit = filters.limit || 20;
+    const offset = (page - 1) * limit;
+    
+    if (filters.network && filters.network !== 'all') params.append('network', filters.network);
+    if (filters.peer) params.append('peer_id', filters.peer);
+    params.append('limit', limit.toString());
+    params.append('offset', offset.toString());
+    
+    const response = await fetch(`${API_BASE_URL}/rejected-tx?${params.toString()}`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data: RejectedTx[] = await response.json();
+    
+    return {
+      data: data || [],
+      pagination: this.createPagination(data?.length || 0, page, limit, offset)
+    };
+  }
+
+  static async getMessagesByType(filters: DashboardFilters): Promise<{ data: any[], pagination: PaginationInfo }> {
+    try {
+      if (!filters.messageType || filters.messageType === 'all') {
+        // Return generic messages if no specific type, with network filtering
+        const searchFilters: SearchFilters = {
+          limit: filters.limit,
+          page: filters.page,
+          peer: filters.peer
+        };
+        
+        // Network filtering is not directly supported by the generic /messages endpoint
+        // We'll filter on the frontend for now or use the specific endpoints
+        
+        const result = await this.getMessages(searchFilters);
+        return { data: result.messages, pagination: result.pagination };
+      }
+
+      switch (filters.messageType) {
+        case 'block':
+          return await this.getBlocks(filters);
+        case 'mining_on':
+          return await this.getMiningMessages(filters);
+        case 'subtree':
+          return await this.getSubtrees(filters);
+        case 'handshake':
+          return await this.getHandshakes(filters);
+        case 'rejected_tx':
+          return await this.getRejectedTransactions(filters);
+        case 'bestblock':
+          // BestBlock doesn't have a specific endpoint yet, use generic messages
+          const result = await this.getMessages({
+            topic: filters.network && filters.network !== 'all' ? 
+              `bitcoin/${filters.network}-bestblock` : undefined,
+            limit: filters.limit,
+            page: filters.page,
+            peer: filters.peer
+          });
+          return { data: result.messages, pagination: result.pagination };
+        default:
+          throw new Error(`Unknown message type: ${filters.messageType}`);
+      }
+    } catch (error) {
+      console.error('Error in getMessagesByType:', error);
+      throw error;
+    }
+  }
+
+  private static createPagination(dataLength: number, page: number, limit: number, offset: number): PaginationInfo {
+    const totalItems = dataLength < limit ? offset + dataLength : offset + dataLength + 1;
+    const totalPages = Math.ceil(totalItems / limit);
+    
+    return {
+      currentPage: page,
+      totalPages,
+      totalItems,
+      pageSize: limit,
+      hasNextPage: dataLength === limit,
+      hasPreviousPage: page > 1
+    };
   }
 
   static async getMessageStats(): Promise<MessageStats> {
