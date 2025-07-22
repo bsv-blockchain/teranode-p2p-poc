@@ -90,7 +90,7 @@ export class ApiService {
       return await response.json();
     } catch (error) {
       console.error('Error fetching message types:', error);
-      return ['bestblock', 'block', 'mining_on', 'subtree', 'handshake', 'rejected_tx'];
+      return ['block', 'mining_on', 'subtree', 'handshake', 'rejected_tx'];
     }
   }
 
@@ -238,16 +238,6 @@ export class ApiService {
           return await this.getHandshakes(filters);
         case 'rejected_tx':
           return await this.getRejectedTransactions(filters);
-        case 'bestblock':
-          // BestBlock doesn't have a specific endpoint yet, use generic messages
-          const result = await this.getMessages({
-            topic: filters.network && filters.network !== 'all' ? 
-              `bitcoin/${filters.network}-bestblock` : undefined,
-            limit: filters.limit,
-            page: filters.page,
-            peer: filters.peer
-          });
-          return { data: result.messages, pagination: result.pagination };
         default:
           throw new Error(`Unknown message type: ${filters.messageType}`);
       }

@@ -6,8 +6,7 @@ import {
   MiningOn,
   Subtree,
   Handshake,
-  RejectedTx,
-  Message
+  RejectedTx
 } from '../types/Message';
 
 interface AggregatedMessage {
@@ -23,54 +22,7 @@ export class MessageAggregatorService {
     const offset = (page - 1) * limit;
 
     try {
-      // First, fetch generic messages to get all available data
-      const genericMessages = await this.fetchWithErrorHandling(() => 
-        ApiService.getMessages({ limit: 200, page: 1, peer: filters.peer })
-      );
-
-      // If we have generic messages, parse them all
-      if (genericMessages?.messages && genericMessages.messages.length > 0) {
-        // Import parser
-        const { MessageParser } = await import('../utils/messageParser');
-        
-        // Parse all messages and return them
-        const parsedMessages = genericMessages.messages.map((msg: Message) => {
-          const parsedData = MessageParser.parseWebSocketMessage(msg);
-          return parsedData;
-        });
-
-        // Filter by network if specified
-        let filteredMessages = parsedMessages;
-        if (filters.network && filters.network !== 'all') {
-          filteredMessages = parsedMessages.filter((msg: any) => {
-            const network = msg.Network || this.extractNetworkFromTopic(msg.Topic);
-            return network === filters.network;
-          });
-        }
-
-        // Sort by ReceivedAt (newest first)
-        filteredMessages.sort((a: any, b: any) => {
-          return new Date(b.ReceivedAt).getTime() - new Date(a.ReceivedAt).getTime();
-        });
-
-        // Apply pagination
-        const paginatedMessages = filteredMessages.slice(offset, offset + limit);
-        const totalItems = filteredMessages.length;
-        const totalPages = Math.ceil(totalItems / limit);
-
-        const pagination: PaginationInfo = {
-          currentPage: page,
-          totalPages,
-          totalItems,
-          pageSize: limit,
-          hasNextPage: page < totalPages,
-          hasPreviousPage: page > 1
-        };
-
-        return { data: paginatedMessages, pagination };
-      }
-
-      // Fallback: try specialized endpoints if generic messages failed
+      // Fetch from all specialized endpoints in parallel
       const [blocks, mining, subtrees, handshakes, rejectedTx] = await Promise.all([
         this.fetchWithErrorHandling(() => ApiService.getBlocks({ ...filters, limit: 100, page: 1 })),
         this.fetchWithErrorHandling(() => ApiService.getMiningMessages({ ...filters, limit: 100, page: 1 })),
@@ -78,6 +30,15 @@ export class MessageAggregatorService {
         this.fetchWithErrorHandling(() => ApiService.getHandshakes({ ...filters, limit: 100, page: 1 })),
         this.fetchWithErrorHandling(() => ApiService.getRejectedTransactions({ ...filters, limit: 100, page: 1 }))
       ]);
+
+      console.log('Fetched data from specialized endpoints:', {
+        blocks: blocks?.data?.length || 0,
+        mining: mining?.data?.length || 0,
+        subtrees: subtrees?.data?.length || 0,
+        handshakes: handshakes?.data?.length || 0,
+        rejectedTx: rejectedTx?.data?.length || 0
+      });
+
 
       // Aggregate all messages
       const aggregatedMessages: AggregatedMessage[] = [];
@@ -137,37 +98,6 @@ export class MessageAggregatorService {
         });
       }
 
-      // Process generic messages for bestblock and other types
-      if (genericMessages?.messages) {
-        const { MessageParser } = await import('../utils/messageParser');
-        
-        genericMessages.messages.forEach((msg: Message) => {
-          // Extract message type from topic
-          const topicParts = msg.Topic.split('-');
-          const messageType = topicParts[topicParts.length - 1];
-          
-          // Check if this message type is not already handled by specialized endpoints
-          const isSpecializedType = ['block', 'mining_on', 'subtree', 'handshake', 'rejected_tx'].includes(messageType);
-          
-          if (!isSpecializedType) {
-            // Don't duplicate if we already have this message
-            const isDuplicate = aggregatedMessages.some(am => 
-              am.sortKey === msg.ReceivedAt && am.data.Peer === msg.Peer
-            );
-            
-            if (!isDuplicate) {
-              // Parse the message to get structured data
-              const parsedMessage = MessageParser.parseWebSocketMessage(msg);
-              
-              aggregatedMessages.push({
-                data: parsedMessage,
-                type: messageType,
-                sortKey: msg.ReceivedAt
-              });
-            }
-          }
-        });
-      }
 
       // Filter by network if specified
       let filteredMessages = aggregatedMessages;
@@ -189,8 +119,11 @@ export class MessageAggregatorService {
       const totalItems = filteredMessages.length;
       const totalPages = Math.ceil(totalItems / limit);
 
-      // Transform back to the expected format
-      const resultData = paginatedMessages.map(msg => msg.data);
+      // Transform back to the expected format, but include the message type
+      const resultData = paginatedMessages.map(msg => ({
+        ...msg.data,
+        _messageType: msg.type // Add type info for Dashboard to use
+      }));
 
       const pagination: PaginationInfo = {
         currentPage: page,
@@ -205,21 +138,32 @@ export class MessageAggregatorService {
 
     } catch (error) {
       console.error('Error in message aggregator:', error);
-      // Fall back to generic messages endpoint
-      const result = await ApiService.getMessages({
-        limit: filters.limit,
-        page: filters.page,
-        peer: filters.peer
-      });
-      return { data: result.messages, pagination: result.pagination };
+      // Return empty data set if aggregation fails
+      return { 
+        data: [], 
+        pagination: {
+          currentPage: 1,
+          totalPages: 0,
+          totalItems: 0,
+          pageSize: filters.limit || 20,
+          hasNextPage: false,
+          hasPreviousPage: false
+        }
+      };
     }
   }
 
   private static async fetchWithErrorHandling<T>(fetchFn: () => Promise<T>): Promise<T | null> {
     try {
-      return await fetchFn();
+      const result = await fetchFn();
+      return result;
     } catch (error) {
-      console.warn('Failed to fetch data:', error);
+      // Log more details about which endpoint failed
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.warn('Failed to fetch data:', {
+        error: errorMessage,
+        functionString: fetchFn.toString().substring(0, 100) + '...'
+      });
       return null;
     }
   }

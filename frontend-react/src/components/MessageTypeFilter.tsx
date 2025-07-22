@@ -13,11 +13,6 @@ const typeInfo: Record<MessageType | 'all', { label: string; icon: string; descr
     icon: '📊', 
     description: 'View all message types' 
   },
-  bestblock: { 
-    label: 'Best Block', 
-    icon: '🎯', 
-    description: 'Best block requests between peers' 
-  },
   block: { 
     label: 'Blocks', 
     icon: '📦', 
@@ -60,11 +55,17 @@ export const MessageTypeFilter: React.FC<MessageTypeFilterProps> = ({
           className="block w-full px-4 py-3 pr-10 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 rounded-lg appearance-none bg-white"
         >
           <option value="all">{typeInfo.all.icon} {typeInfo.all.label} - {typeInfo.all.description}</option>
-          {messageTypes.map(type => (
-            <option key={type} value={type}>
-              {typeInfo[type].icon} {typeInfo[type].label} - {typeInfo[type].description}
-            </option>
-          ))}
+          {messageTypes.map(type => {
+            // Skip types that don't have typeInfo (like bestblock if it's still coming from API)
+            if (!typeInfo[type]) {
+              return null;
+            }
+            return (
+              <option key={type} value={type}>
+                {typeInfo[type].icon} {typeInfo[type].label} - {typeInfo[type].description}
+              </option>
+            );
+          })}
         </select>
         <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
           <svg className="w-5 h-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
@@ -73,7 +74,7 @@ export const MessageTypeFilter: React.FC<MessageTypeFilterProps> = ({
         </div>
       </div>
       <div className="mt-1 text-sm text-gray-500">
-        {selectedType === 'all' ? typeInfo.all.description : typeInfo[selectedType].description}
+        {selectedType === 'all' ? typeInfo.all.description : (typeInfo[selectedType]?.description || 'Unknown message type')}
       </div>
     </div>
   );

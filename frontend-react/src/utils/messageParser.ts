@@ -4,8 +4,7 @@ import {
   MiningOn, 
   Subtree, 
   Handshake, 
-  RejectedTx, 
-  BestBlockRequest 
+  RejectedTx
 } from '../types/Message';
 
 export class MessageParser {
@@ -44,9 +43,6 @@ export class MessageParser {
         
         case 'rejected_tx':
           return this.parseRejectedTxMessage(baseMessage, parsedData);
-        
-        case 'bestblock':
-          return this.parseBestBlockMessage(baseMessage, parsedData);
         
         default:
           // Return the original message for unknown types
@@ -95,32 +91,20 @@ export class MessageParser {
   private static parseSubtreeMessage(base: any, data: any): Subtree {
     return {
       ...base,
-      ReorgLimit: data.reorg_limit || data.ReorgLimit || 0,
-      NodeType: data.node_type || data.NodeType || '',
-      BlockHash: data.block_hash || data.BlockHash || '',
-      MerkleRoot: data.merkle_root || data.MerkleRoot || '',
-      StartIdx: data.start_idx || data.StartIdx || 0,
-      TxCount: data.tx_count || data.TxCount || 0,
-      MerklePaths: data.merkle_paths || data.MerklePaths || []
+      Hash: data.hash || data.Hash || '',
+      DataHubURL: data.data_hub_url || data.DataHubURL || ''
     };
   }
 
   private static parseHandshakeMessage(base: any, data: any): Handshake {
     return {
       ...base,
-      Version: data.version || data.Version || '',
+      Type: data.type || data.Type || '',
+      BestHeight: data.best_height || data.BestHeight || 0,
+      BestHash: data.best_hash || data.BestHash || '',
+      DataHubURL: data.data_hub_url || data.DataHubURL || '',
       UserAgent: data.user_agent || data.UserAgent || '',
-      StreamPolicies: data.stream_policies || data.StreamPolicies || [],
-      StartHeight: data.start_height || data.StartHeight || 0,
-      StartHash: data.start_hash || data.StartHash || '',
-      Relay: data.relay || data.Relay || false,
-      Services: data.services || data.Services || '',
-      Timestamp: data.timestamp || data.Timestamp || 0,
-      ReceiverServices: data.receiver_services || data.ReceiverServices || '',
-      ReceiverAddr: data.receiver_addr || data.ReceiverAddr || '',
-      SenderServices: data.sender_services || data.SenderServices || '',
-      SenderAddr: data.sender_addr || data.SenderAddr || '',
-      Nonce: data.nonce || data.Nonce || 0
+      Services: data.services || data.Services || 0
     };
   }
 
@@ -135,13 +119,4 @@ export class MessageParser {
     };
   }
 
-  private static parseBestBlockMessage(base: any, data: any): BestBlockRequest {
-    return {
-      ...base,
-      Hash: data.hash || data.Hash || '',
-      Height: data.height || data.Height || 0,
-      ChainWork: data.chain_work || data.ChainWork || '',
-      MedianTimePast: data.median_time_past || data.MedianTimePast || 0
-    };
-  }
 }

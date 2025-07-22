@@ -1,5 +1,5 @@
 import React from 'react';
-import { Block, MiningOn, Subtree, Handshake, RejectedTx, BestBlockRequest } from '../types/Message';
+import { Block, MiningOn, Subtree, Handshake, RejectedTx } from '../types/Message';
 
 interface MessageCardBaseProps {
   className?: string;
@@ -313,24 +313,3 @@ export const RejectedTxCard: React.FC<RejectedTxCardProps> = ({ rejectedTx, isNe
   </MessageCardBase>
 );
 
-interface BestBlockCardProps {
-  bestBlock: BestBlockRequest;
-  isNew?: boolean;
-}
-
-export const BestBlockCard: React.FC<BestBlockCardProps> = ({ bestBlock, isNew }) => (
-  <MessageCardBase
-    icon="🎯"
-    title="Best Block Request"
-    network={bestBlock.Network}
-    receivedAt={bestBlock.ReceivedAt}
-    isNew={isNew}
-  >
-    <div>
-      <span className="text-sm font-medium text-gray-500">Peer ID</span>
-      <p className="font-mono text-sm text-gray-900 truncate" title={bestBlock.PeerID || ''}>
-        {bestBlock.PeerID || 'N/A'}
-      </p>
-    </div>
-  </MessageCardBase>
-);

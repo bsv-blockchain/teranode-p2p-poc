@@ -14,8 +14,7 @@ import {
   MiningCard, 
   SubtreeCard, 
   HandshakeCard, 
-  RejectedTxCard, 
-  BestBlockCard 
+  RejectedTxCard
 } from './MessageCards';
 import { 
   Network, 
@@ -26,7 +25,6 @@ import {
   Subtree,
   Handshake,
   RejectedTx,
-  BestBlockRequest,
   Message,
   PaginationInfo
 } from '../types/Message';
@@ -146,13 +144,18 @@ export const Dashboard: React.FC = () => {
   const renderMessageCard = (item: any, index: number) => {
     const isNew = newMessageIds.has(item.ID);
     
-    // When viewing all messages, detect the message type from the Topic
+    // When viewing all messages, detect the message type
     let messageType = selectedMessageType;
-    if (selectedMessageType === 'all' && item.Topic) {
-      // Extract message type from topic (e.g., "/mainnet-block" -> "block")
-      const topicParts = item.Topic.split('-');
-      if (topicParts.length > 1) {
-        messageType = topicParts[topicParts.length - 1] as MessageType;
+    if (selectedMessageType === 'all') {
+      // First check if we have the type from the aggregator
+      if (item._messageType) {
+        messageType = item._messageType as MessageType;
+      } else if (item.Topic) {
+        // Fallback to extracting from topic (for WebSocket messages)
+        const topicParts = item.Topic.split('-');
+        if (topicParts.length > 1) {
+          messageType = topicParts[topicParts.length - 1] as MessageType;
+        }
       }
     }
     
@@ -167,35 +170,10 @@ export const Dashboard: React.FC = () => {
         return <HandshakeCard key={item.ID || index} handshake={item as Handshake} isNew={isNew} />;
       case 'rejected_tx':
         return <RejectedTxCard key={item.ID || index} rejectedTx={item as RejectedTx} isNew={isNew} />;
-      case 'bestblock':
-        return <BestBlockCard key={item.ID || index} bestBlock={item as BestBlockRequest} isNew={isNew} />;
       default:
-        // Fallback for generic messages or when showing all types
-        return (
-          <div key={item.ID || index} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-3">
-                <span className="text-2xl">📨</span>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Message</h3>
-                  <div className="flex items-center space-x-2 mt-1">
-                    <span className="text-sm text-gray-500">
-                      {new Date(item.ReceivedAt).toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <p><span className="font-medium">Topic:</span> {(item as Message).Topic}</p>
-              <p><span className="font-medium">Peer:</span> {(item as Message).Peer}</p>
-              <details className="bg-gray-50 rounded p-3">
-                <summary className="cursor-pointer font-medium">Raw Data</summary>
-                <pre className="mt-2 text-xs overflow-auto">{(item as Message).Data}</pre>
-              </details>
-            </div>
-          </div>
-        );
+        // Should not reach here - log error and return null
+        console.error('Unknown message type:', messageType, 'for item:', item);
+        return null;
     }
   };
 

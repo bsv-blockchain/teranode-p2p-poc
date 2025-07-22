@@ -46,13 +46,6 @@ export enum WebSocketStatus {
 }
 
 // Message type definitions matching the backend
-export interface BestBlockRequest {
-  ID: number;
-  Network: string;
-  PeerID: string;
-  ReceivedAt: string;
-}
-
 export interface Block {
   ID: number;
   Network: string;
@@ -108,7 +101,7 @@ export interface RejectedTx {
   ReceivedAt: string;
 }
 
-export type MessageType = 'bestblock' | 'block' | 'mining_on' | 'subtree' | 'handshake' | 'rejected_tx';
+export type MessageType = 'block' | 'mining_on' | 'subtree' | 'handshake' | 'rejected_tx';
 export type Network = 'mainnet' | 'testnet' | 'regtest' | 'stn' | 'teratestnet' | 'tstn';
 
 export interface DashboardFilters {
