@@ -37,6 +37,10 @@ WORKDIR /
 COPY --from=builder /workspace/teranode-p2p-poc .
 COPY --from=frontend-builder /app/frontend-react/build ./frontend-react/build
 COPY config.yaml .
+
+# Expose the HTTP port
+EXPOSE 8080
+
 USER 65532:65532
 
 ENTRYPOINT ["/teranode-p2p-poc"]

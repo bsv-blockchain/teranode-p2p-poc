@@ -35,33 +35,39 @@ func enableCORS(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func InitServer(log *logrus.Logger, db *gorm.DB) {
+	// Set up static file serving for React app
+	staticFS := http.FileServer(http.Dir("./frontend-react/build"))
+	
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/" {
-			// Try to serve React build first, fall back to legacy frontend
-			if _, err := os.Stat("./frontend-react/build/index.html"); err == nil {
-				http.ServeFile(w, r, "./frontend-react/build/index.html")
-			} else {
-				http.ServeFile(w, r, "./frontend/index.html")
-			}
+		// Skip API endpoints
+		if r.URL.Path == "/ws" || 
+		   r.URL.Path == "/messages" || 
+		   r.URL.Path == "/blocks" || 
+		   r.URL.Path == "/mining" || 
+		   r.URL.Path == "/subtrees" || 
+		   r.URL.Path == "/handshakes" || 
+		   r.URL.Path == "/rejected-tx" ||
+		   r.URL.Path == "/networks" ||
+		   r.URL.Path == "/message-types" {
 			return
 		}
 		
-		// Serve React build static files
-		if _, err := os.Stat("./frontend-react/build"); err == nil {
-			fs := http.FileServer(http.Dir("./frontend-react/build"))
-			fs.ServeHTTP(w, r)
+		// Check if the requested file exists
+		path := "./frontend-react/build" + r.URL.Path
+		if _, err := os.Stat(path); err == nil {
+			// File exists, serve it
+			staticFS.ServeHTTP(w, r)
 			return
 		}
 		
-		// Fallback to legacy frontend
-		if len(r.URL.Path) > 10 && r.URL.Path[:10] == "/frontend/" {
-			fs := http.StripPrefix("/frontend/", http.FileServer(http.Dir("./frontend")))
-			fs.ServeHTTP(w, r)
-			return
+		// For any non-existent path, serve index.html (for React Router)
+		// This enables client-side routing
+		if _, err := os.Stat("./frontend-react/build/index.html"); err == nil {
+			http.ServeFile(w, r, "./frontend-react/build/index.html")
+		} else {
+			// Fallback to legacy frontend if React build doesn't exist
+			http.ServeFile(w, r, "./frontend/index.html")
 		}
-		
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("404 not found"))
 	})
 
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {

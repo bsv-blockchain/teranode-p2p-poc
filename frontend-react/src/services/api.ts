@@ -14,7 +14,10 @@ import {
   DashboardFilters
 } from '../types/Message';
 
-const API_BASE_URL = `http://${window.location.hostname}:8080`;
+// Use relative URL when deployed (same origin), or fallback to port 8080 for local development
+const API_BASE_URL = process.env.NODE_ENV === 'production' 
+  ? '' // Empty string means same origin (relative URLs)
+  : `http://${window.location.hostname}:8080`;
 
 export class ApiService {
   static async getMessages(filters: SearchFilters = {}): Promise<ApiResponse> {

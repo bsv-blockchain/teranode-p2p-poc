@@ -1,0 +1,128 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: teranode-p2p-config
+data:
+  config.yaml: |
+    database:
+      path: /data/teranode.db
+    p2p:
+      bootstrap_addresses:
+        - /ip4/3.67.34.130/tcp/5004/p2p/12D3KooWT3NDfoZaLYQ7o9v5mXiwoxzob4Z2ftwiNiDJVmFfBizb
+        - /ip4/44.192.20.36/tcp/5004/p2p/12D3KooWGFSaKHVKmaubiLhBvZJSNWFmvdHqgGWL3aXnAzBxUnHw
+      shared_key: "teranode"
+      dht_protocol: "/teranode-bootstrap/kad/0.0.1"
+    topics:
+      - "bitcoin/mainnet-block"
+      - "bitcoin/mainnet-mining_on"
+      - "bitcoin/mainnet-subtree"
+      - "bitcoin/mainnet-handshake"
+      - "bitcoin/mainnet-rejected_tx"
+      - "bitcoin/mainnet-bestblock"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: teranode-p2p-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: teranode-p2p
+  labels:
+    app: teranode-p2p
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: teranode-p2p
+  template:
+    metadata:
+      labels:
+        app: teranode-p2p
+    spec:
+      containers:
+      - name: teranode-p2p
+        image: teranode-p2p-poc:latest  # Replace with your registry/image:tag
+        ports:
+        - containerPort: 8080
+          name: http
+        volumeMounts:
+        - name: config
+          mountPath: /config.yaml
+          subPath: config.yaml
+        - name: data
+          mountPath: /data
+        env:
+        - name: TERANODE_P2P_DATABASE_PATH
+          value: /data/teranode.db
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: config
+        configMap:
+          name: teranode-p2p-config
+      - name: data
+        persistentVolumeClaim:
+          claimName: teranode-p2p-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: teranode-p2p
+  labels:
+    app: teranode-p2p
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  selector:
+    app: teranode-p2p
+---
+# Optional: Ingress for external access
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: teranode-p2p
+  annotations:
+    # Add your ingress controller specific annotations here
+    # nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    # nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+spec:
+  rules:
+  - host: teranode.example.com  # Replace with your domain
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: teranode-p2p
+            port:
+              number: 80

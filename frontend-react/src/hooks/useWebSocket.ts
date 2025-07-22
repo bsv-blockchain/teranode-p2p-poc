@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Message, WebSocketStatus } from '../types/Message';
 
-const WS_URL = `ws://${window.location.hostname}:8080/ws`;
+// Use relative WebSocket URL when deployed, or fallback to port 8080 for local development
+const WS_URL = process.env.NODE_ENV === 'production'
+  ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`
+  : `ws://${window.location.hostname}:8080/ws`;
 
 export const useWebSocket = (onMessage: (message: Message) => void) => {
   const [status, setStatus] = useState<WebSocketStatus>(WebSocketStatus.CONNECTING);
