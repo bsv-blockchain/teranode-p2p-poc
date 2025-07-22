@@ -263,28 +263,20 @@ export class ApiService {
 
   static async getMessageStats(): Promise<MessageStats> {
     try {
-      // Get recent messages to calculate stats
-      const response = await this.getMessages({ limit: 100 });
-      const messages = response.messages;
+      const response = await fetch(`${API_BASE_URL}/stats`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       
-      const uniqueTopics = new Set(messages.map(m => m.Topic)).size;
-      const uniquePeers = new Set(messages.map(m => m.Peer)).size;
-      
-      // Calculate messages per minute based on recent messages
-      const now = new Date();
-      const oneMinuteAgo = new Date(now.getTime() - 60000);
-      const recentMessages = messages.filter(m => 
-        new Date(m.ReceivedAt) > oneMinuteAgo
-      );
-      
-      const lastMessageTime = messages.length > 0 ? messages[0].ReceivedAt : undefined;
+      const stats = await response.json();
       
       return {
-        totalMessages: response.pagination.totalItems,
-        uniqueTopics,
-        uniquePeers,
-        messagesPerMinute: recentMessages.length,
-        lastMessageTime
+        totalMessages: stats.totalMessages || 0,
+        uniqueTopics: stats.uniqueTopics || 0,
+        uniquePeers: stats.uniquePeers || 0,
+        messagesToday: stats.messagesToday || 0,
+        latestBlockHeight: stats.latestBlockHeight || {},
+        lastMessageTime: stats.lastMessageTime
       };
     } catch (error) {
       console.error('Error fetching message stats:', error);
@@ -292,7 +284,8 @@ export class ApiService {
         totalMessages: 0,
         uniqueTopics: 0,
         uniquePeers: 0,
-        messagesPerMinute: 0
+        messagesToday: 0,
+        latestBlockHeight: {}
       };
     }
   }

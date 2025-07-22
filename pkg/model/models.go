@@ -6,7 +6,6 @@ import "gorm.io/gorm"
 func MigrateAll(db *gorm.DB) error {
 	return db.AutoMigrate(
 		&Message{},      // Keep existing generic message table
-		&BestBlockRequest{},
 		&Block{},
 		&MiningOn{},
 		&Subtree{},

@@ -81,7 +81,7 @@ const MessageStatsComponent: React.FC<MessageStatsProps> = ({ className = '' }) 
       value: stats.totalMessages.toLocaleString(),
       icon: '📨',
       color: 'blue',
-      subtitle: 'All time'
+      subtitle: 'Total messages of all time since July 23, 2025'
     },
     {
       title: 'Unique Topics',
@@ -98,11 +98,11 @@ const MessageStatsComponent: React.FC<MessageStatsProps> = ({ className = '' }) 
       subtitle: 'Network nodes'
     },
     {
-      title: 'Messages/Min',
-      value: stats.messagesPerMinute.toString(),
-      icon: '⚡',
+      title: 'Messages Today',
+      value: stats.messagesToday.toLocaleString(),
+      icon: '📅',
       color: 'orange',
-      subtitle: 'Current rate'
+      subtitle: 'Last 24 hours'
     }
   ];
 
@@ -143,6 +143,25 @@ const MessageStatsComponent: React.FC<MessageStatsProps> = ({ className = '' }) 
           </div>
         ))}
       </div>
+
+      {/* Latest Block Heights */}
+      {stats.latestBlockHeight && Object.keys(stats.latestBlockHeight).length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Latest Block Heights</h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            {Object.entries(stats.latestBlockHeight).map(([network, height]) => (
+              <div key={network} className="text-center">
+                <div className="text-sm font-medium text-gray-500 uppercase mb-1">
+                  {network}
+                </div>
+                <div className="text-xl font-bold text-gray-900">
+                  {height.toLocaleString()}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {stats.lastMessageTime && (
         <div className="text-center">

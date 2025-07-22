@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 )
 
 // CORS middleware to handle Cross-Origin Resource Sharing
@@ -48,7 +49,8 @@ func InitServer(log *logrus.Logger, db *gorm.DB) {
 		   r.URL.Path == "/handshakes" || 
 		   r.URL.Path == "/rejected-tx" ||
 		   r.URL.Path == "/networks" ||
-		   r.URL.Path == "/message-types" {
+		   r.URL.Path == "/message-types" ||
+		   r.URL.Path == "/stats" {
 			return
 		}
 		
@@ -326,6 +328,112 @@ func InitServer(log *logrus.Logger, db *gorm.DB) {
 		messageTypes := parser.GetMessageTypes()
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(messageTypes)
+	}))
+
+	// Stats endpoint - returns message statistics
+	http.HandleFunc("/stats", enableCORS(func(w http.ResponseWriter, r *http.Request) {
+		type Stats struct {
+			TotalMessages     int64             `json:"totalMessages"`
+			UniqueTopics      int               `json:"uniqueTopics"`
+			UniquePeers       int               `json:"uniquePeers"`
+			MessagesToday     int64             `json:"messagesToday"`
+			LatestBlockHeight map[string]uint32 `json:"latestBlockHeight"`
+			LastMessageTime   *string           `json:"lastMessageTime,omitempty"`
+		}
+
+		stats := Stats{
+			LatestBlockHeight: make(map[string]uint32),
+		}
+
+		// Count messages from all tables
+		var counts []int64
+		tables := []string{"messages", "blocks", "mining_ons", "subtrees", "handshakes", "rejected_txes"}
+		
+		for _, table := range tables {
+			var count int64
+			if err := db.Table(table).Count(&count).Error; err == nil {
+				counts = append(counts, count)
+			}
+		}
+		
+		// Sum all counts
+		for _, count := range counts {
+			stats.TotalMessages += count
+		}
+
+		// Count messages from last 24 hours
+		twentyFourHoursAgo := time.Now().Add(-24 * time.Hour)
+		for _, table := range tables {
+			var todayCount int64
+			if err := db.Table(table).Where("received_at > ?", twentyFourHoursAgo).Count(&todayCount).Error; err == nil {
+				stats.MessagesToday += todayCount
+			}
+		}
+
+		// Get unique topics from messages table
+		var topics []string
+		if err := db.Table("messages").Distinct("topic").Pluck("topic", &topics).Error; err == nil {
+			stats.UniqueTopics = len(topics)
+		}
+
+		// Get unique peers from all tables
+		peerMap := make(map[string]bool)
+		
+		// From messages table
+		var messagePeers []string
+		if err := db.Table("messages").Distinct("peer").Pluck("peer", &messagePeers).Error; err == nil {
+			for _, peer := range messagePeers {
+				if peer != "" {
+					peerMap[peer] = true
+				}
+			}
+		}
+		
+		// From other tables that have peer_id
+		var peerIDs []string
+		for _, table := range []string{"blocks", "mining_ons", "subtrees", "handshakes", "rejected_txes"} {
+			if err := db.Table(table).Distinct("peer_id").Pluck("peer_id", &peerIDs).Error; err == nil {
+				for _, peer := range peerIDs {
+					if peer != "" {
+						peerMap[peer] = true
+					}
+				}
+			}
+		}
+		
+		stats.UniquePeers = len(peerMap)
+
+		// Get latest block height for each network
+		var blocks []model.Block
+		if err := db.Table("blocks").
+			Select("network, MAX(height) as height").
+			Group("network").
+			Find(&blocks).Error; err == nil {
+			for _, block := range blocks {
+				if block.Network != "" {
+					stats.LatestBlockHeight[block.Network] = block.Height
+				}
+			}
+		}
+
+		// Get last message time (most recent from any table)
+		var lastTime time.Time
+		for _, table := range tables {
+			var tableTime time.Time
+			if err := db.Table(table).Select("MAX(received_at) as received_at").Row().Scan(&tableTime); err == nil {
+				if tableTime.After(lastTime) {
+					lastTime = tableTime
+				}
+			}
+		}
+		
+		if !lastTime.IsZero() {
+			timeStr := lastTime.Format(time.RFC3339)
+			stats.LastMessageTime = &timeStr
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(stats)
 	}))
 
 	addr := ":8080"

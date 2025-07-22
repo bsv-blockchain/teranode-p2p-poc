@@ -34,7 +34,8 @@ export interface MessageStats {
   totalMessages: number;
   uniqueTopics: number;
   uniquePeers: number;
-  messagesPerMinute: number;
+  messagesToday: number;
+  latestBlockHeight: Record<string, number>;
   lastMessageTime?: string;
 }
 
