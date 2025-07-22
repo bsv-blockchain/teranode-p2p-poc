@@ -42,7 +42,7 @@ func main() {
 	// Initialize SQLite DB with GORM
 	db, err := gorm.Open(sqlite.Open(databasePath), &gorm.Config{})
 	if err != nil {
-		log.Fatalf("failed to connect to database: %v", err)
+		log.Fatalf("failed to connect to database [%s]: %v", databasePath, err)
 	}
 	// Auto-migrate all schemas
 	err = model.MigrateAll(db)
@@ -97,7 +97,7 @@ func main() {
 		err = node.SetTopicHandler(ctx, topicCopy, func(ctx context.Context, data []byte, peer string) {
 			// Try to parse the message
 			parsedMsg, parseErr := parser.ParseMessage(topicCopy, data)
-			
+
 			if parseErr != nil {
 				// If parsing fails, store as generic message
 				log.Warnf("Failed to parse message for topic %s: %v", topicCopy, parseErr)

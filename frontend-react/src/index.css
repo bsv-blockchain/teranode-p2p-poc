@@ -101,7 +101,7 @@
 
 /* Text gradient utilities */
 .text-gradient {
-  background: linear-gradient(45deg, #3b82f6, #8b5cf6);
+  background: linear-gradient(45deg, #1B1EA9, #003FFF);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -109,6 +109,13 @@
 
 .text-gradient-success {
   background: linear-gradient(45deg, #10b981, #059669);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gradient-bsv {
+  background: linear-gradient(45deg, #1B1EA9, #FF2DAF);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;

@@ -52,7 +52,7 @@ const WebSocketStatusComponent: React.FC<WebSocketStatusProps> = ({ status, onRe
       {config.showButton && (
         <button
           onClick={onReconnect}
-          className="text-xs text-blue-600 hover:text-blue-800 underline"
+          className="text-xs text-bsv-primary hover:text-bsv-600 underline"
         >
           Reconnect
         </button>

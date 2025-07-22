@@ -35,6 +35,22 @@ module.exports = {
         },
       },
       colors: {
+        'bsv': {
+          'primary': '#1B1EA9',
+          'secondary': '#003FFF',
+          'accent': '#FF2DAF',
+          'text': '#2D2D31',
+          50: '#e6e7f5',
+          100: '#c0c2e7',
+          200: '#9699d8',
+          300: '#6b70ca',
+          400: '#4b51bf',
+          500: '#1B1EA9',
+          600: '#1819a2',
+          700: '#141598',
+          800: '#10118f',
+          900: '#08087e',
+        },
         'teranode': {
           50: '#f0f9ff',
           100: '#e0f2fe',
@@ -49,6 +65,8 @@ module.exports = {
         },
       },
       fontFamily: {
+        'sans': ['Noto Sans', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        'display': ['Chillax', 'Noto Sans', 'system-ui', 'sans-serif'],
         'mono': ['JetBrains Mono', 'Fira Code', 'Monaco', 'Cascadia Code', 'Roboto Mono', 'monospace'],
       },
       boxShadow: {

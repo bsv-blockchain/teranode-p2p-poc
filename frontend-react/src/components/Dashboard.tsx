@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ApiService } from '../services/api';
+import { MessageAggregatorService } from '../services/messageAggregator';
+import { MessageParser } from '../utils/messageParser';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { NetworkSelector } from './NetworkSelector';
 import { MessageTypeFilter } from './MessageTypeFilter';
@@ -48,6 +50,9 @@ export const Dashboard: React.FC = () => {
   const handleWebSocketMessage = useCallback((message: Message) => {
     // Only add to current view if we're on the first page with basic filters
     if (currentPage === 1 && !peerFilter) {
+      // Parse the message to get structured data
+      const parsedMessage = MessageParser.parseWebSocketMessage(message);
+      
       // Check if message matches current filters
       const messageNetwork = message.Topic.split('/')[1]?.split('-')[0];
       const messageType = message.Topic.split('-')[1];
@@ -56,14 +61,14 @@ export const Dashboard: React.FC = () => {
       const matchesType = selectedMessageType === 'all' || messageType === selectedMessageType;
       
       if (matchesNetwork && matchesType) {
-        setData(prev => [message, ...prev.slice(0, 19)]);
-        setNewMessageIds(prev => new Set(prev).add(message.ID));
+        setData(prev => [parsedMessage, ...prev.slice(0, 19)]);
+        setNewMessageIds(prev => new Set(prev).add(parsedMessage.ID));
         
         // Remove the "new" indicator after 3 seconds
         setTimeout(() => {
           setNewMessageIds(prev => {
             const newSet = new Set(prev);
-            newSet.delete(message.ID);
+            newSet.delete(parsedMessage.ID);
             return newSet;
           });
         }, 3000);
@@ -105,7 +110,11 @@ export const Dashboard: React.FC = () => {
           page: currentPage
         };
 
-        const result = await ApiService.getMessagesByType(filters);
+        // Use aggregator when viewing all messages
+        const result = selectedMessageType === 'all' 
+          ? await MessageAggregatorService.getAllMessages(filters)
+          : await ApiService.getMessagesByType(filters);
+        
         setData(result.data);
         setPagination(result.pagination);
         
@@ -137,7 +146,17 @@ export const Dashboard: React.FC = () => {
   const renderMessageCard = (item: any, index: number) => {
     const isNew = newMessageIds.has(item.ID);
     
-    switch (selectedMessageType) {
+    // When viewing all messages, detect the message type from the Topic
+    let messageType = selectedMessageType;
+    if (selectedMessageType === 'all' && item.Topic) {
+      // Extract message type from topic (e.g., "/mainnet-block" -> "block")
+      const topicParts = item.Topic.split('-');
+      if (topicParts.length > 1) {
+        messageType = topicParts[topicParts.length - 1] as MessageType;
+      }
+    }
+    
+    switch (messageType) {
       case 'block':
         return <BlockCard key={item.ID || index} block={item as Block} isNew={isNew} />;
       case 'mining_on':
@@ -186,9 +205,16 @@ export const Dashboard: React.FC = () => {
         {/* Top Header with Network Selection */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Teranode P2P Dashboard</h1>
-              <p className="mt-1 text-gray-600">Monitor Bitcoin SV network messages in real-time</p>
+            <div className="flex items-center gap-4">
+              <img 
+                src="/bsv-logo.svg" 
+                alt="BSV Association" 
+                className="h-8 w-auto"
+              />
+              <div className="border-l-2 border-gray-300 pl-4">
+                <h1 className="text-3xl font-display font-bold text-bsv-primary">Teranode P2P Monitor</h1>
+                <p className="mt-1 text-bsv-text">Real-time Bitcoin SV network message monitoring</p>
+              </div>
             </div>
             <WebSocketStatusComponent status={wsStatus} onReconnect={reconnect} />
           </div>

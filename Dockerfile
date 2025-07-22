@@ -7,7 +7,7 @@ COPY frontend-react/ ./
 RUN npm run build
 
 # Build the manager binary
-FROM golang:1.24 AS builder
+FROM golang:1.24.5 AS builder
 ARG TARGETOS
 ARG TARGETARCH
 
@@ -23,7 +23,6 @@ RUN go mod download
 # Copy the go source
 COPY cmd/ cmd/
 COPY pkg/ pkg/
-COPY frontend/ frontend/
 
 # Build
 # the GOARCH has not a default value to allow the binary be built according to the host where the command
@@ -37,7 +36,6 @@ FROM registry.access.redhat.com/ubi9-minimal:9.3
 WORKDIR /
 COPY --from=builder /workspace/teranode-p2p-poc .
 COPY --from=frontend-builder /app/frontend-react/build ./frontend-react/build
-COPY frontend-docker ./frontend
 COPY config.yaml .
 USER 65532:65532
 
