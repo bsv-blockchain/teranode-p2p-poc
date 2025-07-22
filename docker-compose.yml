@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  teranode-p2p:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config.yaml:/config.yaml:ro
+      - ./data:/data
+    environment:
+      - TERANODE_P2P_DATABASE_PATH=/data/teranode.db
+    restart: unless-stopped

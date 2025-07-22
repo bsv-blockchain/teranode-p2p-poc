@@ -2,6 +2,7 @@
 p2p:
   bootstrap_addresses:
     - "/dns4/teranode-bootstrap.bsvb.tech/tcp/9901/p2p/12D3KooWESmhNAN8s6NPdGNvJH3zJ4wMKDxapXKNUe2DzkAwKYqK"
+    - "/dns4/teranode-bootstrap-stage.bsvb.tech/tcp/9901/p2p/12D3KooWJ6kQHAR65xkA34NABsNVAJyVxPWh8JUSo1vtZsTyw4GD"
   shared_key: "285b49e6d910726a70f205086c39cbac6d8dcc47839053a21b1f614773bbc137"
   dht_protocol_id: "/teranode"
   port: 9901
@@ -13,10 +14,22 @@ p2p:
 database:
   path: "./teranode-p2p.db"
 
-topics:
-  - "bitcoin/mainnet-bestblock"
-  - "bitcoin/mainnet-block"
-  - "bitcoin/mainnet-subtree"
-  - "bitcoin/mainnet-mining_on"
-  - "bitcoin/mainnet-handshake"
-  - "bitcoin/mainnet-rejected_tx"
+# New configuration: specify networks to subscribe to
+# The system will automatically generate all topic combinations for these networks
+networks:
+  - "mainnet"
+  - "testnet"
+  - "regtest"
+  - "stn"
+  - "teratestnet"
+  - "tstn"
+
+# Legacy configuration (deprecated, use 'networks' instead)
+# topics:
+#   - "bitcoin/mainnet-bestblock"
+#   - "bitcoin/mainnet-block"
+#   - "bitcoin/mainnet-subtree"
+#   - "bitcoin/mainnet-mining_on"
+#   - "bitcoin/mainnet-handshake"
+#   - "bitcoin/mainnet-rejected_tx"
+#   ... (and so on for all networks)
