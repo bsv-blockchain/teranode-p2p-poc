@@ -57,6 +57,6 @@ jobs:
           file: ./Dockerfile # Path to Dockerfile
           push: ${{ github.event_name != 'pull_request' }} # Only push on push events, not PRs
           tags: |
-            ghcr.io/bsv-blockchain-demos/teranode-p2p-poc:${{ github.sha }}
-            ghcr.io/bsv-blockchain-demos/teranode-p2p-poc:${{ needs.get_tag.outputs.deployment_tag }}
+            ghcr.io/bsv-blockchain/teranode-p2p-poc:${{ github.sha }}
+            ghcr.io/bsv-blockchain/teranode-p2p-poc:${{ needs.get_tag.outputs.deployment_tag }}
 
