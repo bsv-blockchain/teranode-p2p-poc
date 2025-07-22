@@ -9,12 +9,12 @@ interface NetworkSelectorProps {
 
 const networkInfo: Record<Network | 'all', { label: string; color: string; bgColor: string; ringColor: string }> = {
   all: { label: 'All Networks', color: 'text-bsv-primary', bgColor: 'bg-bsv-50', ringColor: 'ring-bsv-primary' },
-  mainnet: { label: 'Mainnet', color: 'text-orange-700', bgColor: 'bg-orange-100', ringColor: 'ring-orange-500' },
+  mainnet: { label: 'Mainnet', color: 'text-bsv-secondary', bgColor: 'bg-blue-100', ringColor: 'ring-bsv-secondary' },
   testnet: { label: 'Testnet', color: 'text-green-700', bgColor: 'bg-green-100', ringColor: 'ring-green-500' },
   regtest: { label: 'Regtest', color: 'text-purple-700', bgColor: 'bg-purple-100', ringColor: 'ring-purple-500' },
-  stn: { label: 'STN', color: 'text-bsv-secondary', bgColor: 'bg-blue-100', ringColor: 'ring-bsv-secondary' },
+  stn: { label: 'STN', color: 'text-bsv-accent', bgColor: 'bg-blue-100', ringColor: 'ring-bsv-accent' },
   teratestnet: { label: 'TeraTestnet', color: 'text-indigo-700', bgColor: 'bg-indigo-100', ringColor: 'ring-indigo-500' },
-  tstn: { label: 'TSTN', color: 'text-bsv-accent', bgColor: 'bg-pink-100', ringColor: 'ring-bsv-accent' }
+  tstn: { label: 'TSTN', color: 'text-orange-700', bgColor: 'bg-orange-100', ringColor: 'ring-orange-500' },
 };
 
 export const NetworkSelector: React.FC<NetworkSelectorProps> = ({ 
