@@ -122,21 +122,21 @@ const MessageStatsComponent: React.FC<MessageStatsProps> = ({ className = '' }) 
         {statCards.map((card, index) => (
           <div
             key={index}
-            className={`relative overflow-hidden rounded-xl border-2 p-6 transition-all duration-300 hover:shadow-md hover:scale-105 ${getColorClasses(card.color)}`}
+            className={`relative overflow-hidden rounded-xl border-2 p-4 sm:p-6 transition-all duration-300 hover:shadow-md hover:scale-105 ${getColorClasses(card.color)}`}
           >
             <div className="flex items-center justify-between">
               <div className="flex-1">
-                <div className="text-sm font-medium opacity-75 mb-1">
+                <div className="text-xs sm:text-sm font-medium opacity-75 mb-1">
                   {card.title}
                 </div>
-                <div className="text-2xl font-bold mb-1">
+                <div className="text-xl sm:text-2xl font-bold mb-1">
                   {card.value}
                 </div>
                 <div className="text-xs opacity-60">
                   {card.subtitle}
                 </div>
               </div>
-              <div className="text-2xl opacity-75">
+              <div className="text-xl sm:text-2xl opacity-75">
                 {card.icon}
               </div>
             </div>
@@ -146,15 +146,15 @@ const MessageStatsComponent: React.FC<MessageStatsProps> = ({ className = '' }) 
 
       {/* Latest Block Heights */}
       {stats.latestBlockHeight && Object.keys(stats.latestBlockHeight).length > 0 && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-4">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Latest Block Heights</h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 mb-4">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Latest Block Heights</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
             {Object.entries(stats.latestBlockHeight).map(([network, height]) => (
               <div key={network} className="text-center">
-                <div className="text-sm font-medium text-gray-500 uppercase mb-1">
+                <div className="text-xs sm:text-sm font-medium text-gray-500 uppercase mb-1">
                   {network}
                 </div>
-                <div className="text-xl font-bold text-gray-900">
+                <div className="text-lg sm:text-xl font-bold text-gray-900">
                   {height.toLocaleString()}
                 </div>
               </div>

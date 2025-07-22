@@ -25,12 +25,12 @@ export const NetworkSelector: React.FC<NetworkSelectorProps> = ({
   return (
     <div className="space-y-2">
       <label className="block text-sm font-medium text-gray-700">Network</label>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2">
         <button
           key="all"
           onClick={() => onNetworkChange('all')}
           className={`
-            px-3 py-2 rounded-lg font-medium text-sm transition-all duration-200
+            px-2 sm:px-3 py-2 rounded-lg font-medium text-xs sm:text-sm transition-all duration-200 min-h-[44px]
             ${selectedNetwork === 'all'
               ? `${networkInfo['all'].bgColor} ${networkInfo['all'].color} ring-2 ring-offset-2 ${networkInfo['all'].ringColor}`
               : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
@@ -44,7 +44,7 @@ export const NetworkSelector: React.FC<NetworkSelectorProps> = ({
             key={network}
             onClick={() => onNetworkChange(network)}
             className={`
-              px-3 py-2 rounded-lg font-medium text-sm transition-all duration-200
+              px-2 sm:px-3 py-2 rounded-lg font-medium text-xs sm:text-sm transition-all duration-200 min-h-[44px]
               ${selectedNetwork === network
                 ? `${networkInfo[network].bgColor} ${networkInfo[network].color} ring-2 ring-offset-2 ${networkInfo[network].ringColor}`
                 : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'

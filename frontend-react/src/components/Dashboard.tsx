@@ -179,26 +179,28 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
         {/* Top Header with Network Selection */}
         <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               <img 
                 src="/bsv-logo.svg" 
                 alt="BSV Association" 
-                className="h-8 w-auto"
+                className="h-6 sm:h-8 w-auto"
               />
-              <div className="border-l-2 border-gray-300 pl-4">
-                <h1 className="text-3xl font-display font-bold text-bsv-primary">Teranode P2P Monitor</h1>
-                <p className="mt-1 text-bsv-text">Real-time Bitcoin SV network message monitoring</p>
+              <div className="border-l-2 border-gray-300 pl-2 sm:pl-4">
+                <h1 className="text-xl sm:text-3xl font-display font-bold text-bsv-primary">Teranode P2P Monitor</h1>
+                <p className="text-xs sm:text-base mt-0.5 sm:mt-1 text-bsv-text">Real-time Bitcoin SV network message monitoring</p>
               </div>
             </div>
-            <WebSocketStatusComponent status={wsStatus} onReconnect={reconnect} />
+            <div className="self-end sm:self-center">
+              <WebSocketStatusComponent status={wsStatus} onReconnect={reconnect} />
+            </div>
           </div>
           
           {/* Network Selection - Prominent at Top */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
             <NetworkSelector
               selectedNetwork={selectedNetwork}
               onNetworkChange={setSelectedNetwork}
@@ -213,9 +215,9 @@ export const Dashboard: React.FC = () => {
         </div>
 
         {/* Secondary Filters */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-6">Message Filters</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 mb-6">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-4 sm:mb-6">Message Filters</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
             <MessageTypeFilter
               selectedType={selectedMessageType}
               onTypeChange={setSelectedMessageType}
@@ -273,7 +275,7 @@ export const Dashboard: React.FC = () => {
 
           {/* Messages Grid */}
           {data.length > 0 ? (
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
               {data.map((item, index) => renderMessageCard(item, index))}
             </div>
           ) : loading ? (

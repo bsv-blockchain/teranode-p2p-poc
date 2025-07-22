@@ -47,12 +47,12 @@ export const MessageTypeFilter: React.FC<MessageTypeFilterProps> = ({
 }) => {
   return (
     <div className="space-y-2">
-      <label className="block text-sm font-medium text-gray-700">Message Type</label>
+      <label className="block text-xs sm:text-sm font-medium text-gray-700">Message Type</label>
       <div className="relative">
         <select
           value={selectedType}
           onChange={(e) => onTypeChange(e.target.value as MessageType | 'all')}
-          className="block w-full px-4 py-3 pr-10 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 rounded-lg appearance-none bg-white"
+          className="block w-full px-3 sm:px-4 py-3 pr-10 text-sm sm:text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 rounded-lg appearance-none bg-white min-h-[44px]"
         >
           <option value="all">{typeInfo.all.icon} {typeInfo.all.label} - {typeInfo.all.description}</option>
           {messageTypes.map(type => {
@@ -73,7 +73,7 @@ export const MessageTypeFilter: React.FC<MessageTypeFilterProps> = ({
           </svg>
         </div>
       </div>
-      <div className="mt-1 text-sm text-gray-500">
+      <div className="mt-1 text-xs sm:text-sm text-gray-500">
         {selectedType === 'all' ? typeInfo.all.description : (typeInfo[selectedType]?.description || 'Unknown message type')}
       </div>
     </div>

@@ -34,7 +34,7 @@ export const PeerFilter: React.FC<PeerFilterProps> = ({
 
   return (
     <div className="relative">
-      <label className="block text-sm font-medium text-gray-700 mb-2">Peer ID</label>
+      <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Peer ID</label>
       <div className="relative">
         <input
           type="text"
@@ -43,7 +43,7 @@ export const PeerFilter: React.FC<PeerFilterProps> = ({
           onFocus={() => setShowSuggestions(true)}
           onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
           placeholder={placeholder}
-          className="block w-full px-4 py-3 pr-10 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 rounded-lg"
+          className="block w-full px-3 sm:px-4 py-3 pr-10 text-sm sm:text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 rounded-lg min-h-[44px]"
         />
         {value && (
           <button
@@ -64,7 +64,7 @@ export const PeerFilter: React.FC<PeerFilterProps> = ({
               <button
                 key={index}
                 onClick={() => handleSelect(peer)}
-                className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
+                className="w-full px-3 sm:px-4 py-2 text-left text-xs sm:text-sm hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
               >
                 <div className="font-mono text-xs truncate">{peer}</div>
               </button>
@@ -73,7 +73,7 @@ export const PeerFilter: React.FC<PeerFilterProps> = ({
         </div>
       )}
       
-      <p className="mt-1 text-sm text-gray-500">
+      <p className="mt-1 text-xs sm:text-sm text-gray-500">
         Enter a peer ID to filter messages
       </p>
     </div>

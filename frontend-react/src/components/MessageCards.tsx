@@ -52,7 +52,7 @@ const MessageCardBase: React.FC<MessageCardBaseProps> = ({
 
   return (
     <div className={`
-      relative bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200
+      relative bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 hover:shadow-md transition-shadow duration-200
       ${isNew ? 'ring-2 ring-green-200 bg-green-50' : ''}
       ${className}
     `}>
@@ -64,16 +64,16 @@ const MessageCardBase: React.FC<MessageCardBaseProps> = ({
         </div>
       )}
       
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center space-x-3">
-          <span className="text-2xl">{icon}</span>
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-            <div className="flex items-center space-x-2 mt-1">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-4">
+        <div className="flex items-start space-x-2 sm:space-x-3">
+          <span className="text-xl sm:text-2xl flex-shrink-0">{icon}</span>
+          <div className="min-w-0 flex-1">
+            <h3 className="text-base sm:text-lg font-semibold text-gray-900 break-words">{title}</h3>
+            <div className="flex flex-wrap items-center gap-2 mt-1">
               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getNetworkColor(network || '')}`}>
                 {(network || 'UNKNOWN').toUpperCase()}
               </span>
-              <span className="text-sm text-gray-500">{formatTime(receivedAt)}</span>
+              <span className="text-xs sm:text-sm text-gray-500">{formatTime(receivedAt)}</span>
             </div>
           </div>
         </div>
@@ -99,27 +99,27 @@ export const BlockCard: React.FC<BlockCardProps> = ({ block, isNew }) => (
     receivedAt={block.ReceivedAt}
     isNew={isNew}
   >
-    <div className="grid grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
       <div>
-        <span className="text-sm font-medium text-gray-500">Hash</span>
-        <p className="font-mono text-sm text-gray-900 truncate" title={block.Hash}>
+        <span className="text-xs sm:text-sm font-medium text-gray-500">Hash</span>
+        <p className="font-mono text-xs sm:text-sm text-gray-900 truncate" title={block.Hash}>
           {block.Hash}
         </p>
       </div>
       <div>
-        <span className="text-sm font-medium text-gray-500">Height</span>
-        <p className="text-sm text-gray-900">{block.Height?.toLocaleString() || 'N/A'}</p>
+        <span className="text-xs sm:text-sm font-medium text-gray-500">Height</span>
+        <p className="text-xs sm:text-sm text-gray-900">{block.Height?.toLocaleString() || 'N/A'}</p>
       </div>
     </div>
     
     {block.DataHubURL && (
       <div>
-        <span className="text-sm font-medium text-gray-500">Data Hub URL</span>
+        <span className="text-xs sm:text-sm font-medium text-gray-500">Data Hub URL</span>
         <a 
           href={block.DataHubURL} 
           target="_blank" 
           rel="noopener noreferrer"
-          className="text-sm text-indigo-600 hover:text-indigo-500 truncate block"
+          className="text-xs sm:text-sm text-indigo-600 hover:text-indigo-500 break-all block"
         >
           {block.DataHubURL}
         </a>
@@ -148,27 +148,27 @@ export const MiningCard: React.FC<MiningCardProps> = ({ mining, isNew }) => (
     receivedAt={mining.ReceivedAt}
     isNew={isNew}
   >
-    <div className="grid grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
       <div>
-        <span className="text-sm font-medium text-gray-500">Block Hash</span>
-        <p className="font-mono text-sm text-gray-900 truncate" title={mining.Hash}>
+        <span className="text-xs sm:text-sm font-medium text-gray-500">Block Hash</span>
+        <p className="font-mono text-xs sm:text-sm text-gray-900 truncate" title={mining.Hash}>
           {mining.Hash}
         </p>
       </div>
       <div>
-        <span className="text-sm font-medium text-gray-500">Height</span>
-        <p className="text-sm text-gray-900">{mining.Height?.toLocaleString() || 'N/A'}</p>
+        <span className="text-xs sm:text-sm font-medium text-gray-500">Height</span>
+        <p className="text-xs sm:text-sm text-gray-900">{mining.Height?.toLocaleString() || 'N/A'}</p>
       </div>
     </div>
     
-    <div className="grid grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
       <div>
-        <span className="text-sm font-medium text-gray-500">Size</span>
-        <p className="text-sm text-gray-900">{mining.SizeInBytes ? (mining.SizeInBytes / 1024).toFixed(1) + ' KB' : 'N/A'}</p>
+        <span className="text-xs sm:text-sm font-medium text-gray-500">Size</span>
+        <p className="text-xs sm:text-sm text-gray-900">{mining.SizeInBytes ? (mining.SizeInBytes / 1024).toFixed(1) + ' KB' : 'N/A'}</p>
       </div>
       <div>
-        <span className="text-sm font-medium text-gray-500">TX Count</span>
-        <p className="text-sm text-gray-900">{mining.TxCount?.toLocaleString() || 'N/A'}</p>
+        <span className="text-xs sm:text-sm font-medium text-gray-500">TX Count</span>
+        <p className="text-xs sm:text-sm text-gray-900">{mining.TxCount?.toLocaleString() || 'N/A'}</p>
       </div>
     </div>
     
@@ -210,12 +210,12 @@ export const SubtreeCard: React.FC<SubtreeCardProps> = ({ subtree, isNew }) => (
     
     {subtree.DataHubURL && (
       <div>
-        <span className="text-sm font-medium text-gray-500">Data Hub URL</span>
+        <span className="text-xs sm:text-sm font-medium text-gray-500">Data Hub URL</span>
         <a 
           href={subtree.DataHubURL} 
           target="_blank" 
           rel="noopener noreferrer"
-          className="text-sm text-indigo-600 hover:text-indigo-500 truncate block"
+          className="text-xs sm:text-sm text-indigo-600 hover:text-indigo-500 break-all block"
         >
           {subtree.DataHubURL}
         </a>
@@ -244,14 +244,14 @@ export const HandshakeCard: React.FC<HandshakeCardProps> = ({ handshake, isNew }
     receivedAt={handshake.ReceivedAt}
     isNew={isNew}
   >
-    <div className="grid grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
       <div>
-        <span className="text-sm font-medium text-gray-500">Best Height</span>
-        <p className="text-sm text-gray-900">{handshake.BestHeight?.toLocaleString() || 'N/A'}</p>
+        <span className="text-xs sm:text-sm font-medium text-gray-500">Best Height</span>
+        <p className="text-xs sm:text-sm text-gray-900">{handshake.BestHeight?.toLocaleString() || 'N/A'}</p>
       </div>
       <div>
-        <span className="text-sm font-medium text-gray-500">Services</span>
-        <p className="text-sm text-gray-900">{handshake.Services ? '0x' + handshake.Services.toString(16) : 'N/A'}</p>
+        <span className="text-xs sm:text-sm font-medium text-gray-500">Services</span>
+        <p className="text-xs sm:text-sm text-gray-900">{handshake.Services ? '0x' + handshake.Services.toString(16) : 'N/A'}</p>
       </div>
     </div>
     
@@ -298,8 +298,8 @@ export const RejectedTxCard: React.FC<RejectedTxCardProps> = ({ rejectedTx, isNe
     </div>
     
     <div>
-      <span className="text-sm font-medium text-gray-500">Reason</span>
-      <p className="text-sm text-gray-900 bg-red-50 p-2 rounded">
+      <span className="text-xs sm:text-sm font-medium text-gray-500">Reason</span>
+      <p className="text-xs sm:text-sm text-gray-900 bg-red-50 p-2 rounded break-words">
         {rejectedTx.Reason || 'No reason provided'}
       </p>
     </div>
