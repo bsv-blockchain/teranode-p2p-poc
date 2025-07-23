@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Link, Navigate, useLocation } f
 import { Dashboard } from './components/Dashboard';
 import Peers from './components/Peers';
 import PeerDetail from './components/PeerDetail';
+import Stats from './components/Stats';
 import './App.css';
 
 function Navigation() {
@@ -48,6 +49,16 @@ function Navigation() {
                 }`}
               >
                 Dashboard
+              </Link>
+              <Link
+                to="/stats"
+                className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
+                  location.pathname === '/stats' 
+                    ? 'border-blue-500 text-gray-900' 
+                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                }`}
+              >
+                Stats
               </Link>
               <Link
                 to="/peers"
@@ -107,6 +118,16 @@ function Navigation() {
             Dashboard
           </Link>
           <Link
+            to="/stats"
+            className={`block px-3 py-2 rounded-md text-base font-medium ${
+              location.pathname === '/stats' 
+                ? 'bg-blue-50 border-blue-500 text-blue-700' 
+                : 'text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800'
+            } border-l-4`}
+          >
+            Stats
+          </Link>
+          <Link
             to="/peers"
             className={`block px-3 py-2 rounded-md text-base font-medium ${
               location.pathname.startsWith('/peers') 
@@ -131,6 +152,7 @@ function App() {
         {/* Routes */}
         <Routes>
           <Route path="/" element={<Dashboard />} />
+          <Route path="/stats" element={<Stats />} />
           <Route path="/peers" element={<Peers />} />
           <Route path="/peers/:peerID" element={<PeerDetail />} />
           <Route path="*" element={<Navigate to="/" replace />} />
