@@ -37,6 +37,12 @@ export interface TopicStat {
   messageType?: string;
 }
 
+export interface PeerSummary {
+  peerID: string;
+  messageCount: number;
+  lastSeen: string;
+}
+
 export interface MessageStats {
   totalMessages: number;
   uniqueTopics: number;
@@ -45,6 +51,40 @@ export interface MessageStats {
   latestBlockHeight: Record<string, number>;
   lastMessageTime?: string;
   topicStats: TopicStat[];
+  topPeers: PeerSummary[];
+}
+
+export interface PeerStat {
+  peerID: string;
+  totalMessages: number;
+  firstSeen: string;
+  lastSeen: string;
+  networks: string[];
+  messageTypes: Record<string, number>;
+  lastUserAgent?: string;
+  lastBestHeight?: number;
+}
+
+export interface PeersResponse {
+  peers: PeerStat[];
+  totalPeers: number;
+  limit: number;
+  offset: number;
+}
+
+export interface PeerDetail {
+  peerID: string;
+  totalMessages: number;
+  firstSeen: string;
+  lastSeen: string;
+  networks: string[];
+  messageTypes: Record<string, number>;
+  handshakes: Handshake[];
+  recentBlocks: Block[];
+  recentMining: MiningOn[];
+  timeStats: {
+    hourly?: Record<string, number>;
+  };
 }
 
 export enum WebSocketStatus {

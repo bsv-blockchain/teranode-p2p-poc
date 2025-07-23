@@ -279,7 +279,8 @@ export class ApiService {
         messagesToday: stats.messagesToday || 0,
         latestBlockHeight: stats.latestBlockHeight || {},
         lastMessageTime: stats.lastMessageTime,
-        topicStats: stats.topicStats || []
+        topicStats: stats.topicStats || [],
+        topPeers: stats.topPeers || []
       };
     } catch (error) {
       console.error('Error fetching message stats:', error);
@@ -289,8 +290,26 @@ export class ApiService {
         uniquePeers: 0,
         messagesToday: 0,
         latestBlockHeight: {},
-        topicStats: []
+        topicStats: [],
+        topPeers: []
       };
     }
+  }
+
+  static async getPeers(page: number = 1, limit: number = 20): Promise<import('../types/Message').PeersResponse> {
+    const offset = (page - 1) * limit;
+    const response = await fetch(`${API_BASE_URL}/peers?limit=${limit}&offset=${offset}`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  }
+
+  static async getPeerDetail(peerID: string): Promise<import('../types/Message').PeerDetail> {
+    const response = await fetch(`${API_BASE_URL}/peers/${encodeURIComponent(peerID)}`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return response.json();
   }
 }

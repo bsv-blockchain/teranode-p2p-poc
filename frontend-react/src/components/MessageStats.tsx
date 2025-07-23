@@ -217,6 +217,47 @@ const MessageStatsComponent: React.FC<MessageStatsProps> = ({ className = '' }) 
         </div>
       )}
 
+      {/* Top Peers */}
+      {stats.topPeers && stats.topPeers.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 mb-4">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Top Active Peers</h3>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Peer ID
+                  </th>
+                  <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Messages
+                  </th>
+                  <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Last Seen
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {stats.topPeers.slice(0, 5).map((peer, index) => (
+                  <tr key={index} className="hover:bg-gray-50">
+                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                      <span className="font-mono text-xs">
+                        {peer.peerID.substring(0, 20)}...
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900 text-right font-medium">
+                      {peer.messageCount.toLocaleString()}
+                    </td>
+                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-600 text-right">
+                      {formatTime(peer.lastSeen)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {stats.lastMessageTime && (
         <div className="text-center">
           <p className="text-sm text-gray-600">
