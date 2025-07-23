@@ -985,8 +985,8 @@ func InitServer(log *logrus.Logger, db *gorm.DB) {
 		// Get message counts and time range from messages table
 		var messageStats struct {
 			Count     int64
-			FirstSeen time.Time
-			LastSeen  time.Time
+			FirstSeen string
+			LastSeen  string
 		}
 		db.Table("messages").
 			Select("COUNT(*) as count, MIN(received_at) as first_seen, MAX(received_at) as last_seen").
@@ -994,8 +994,28 @@ func InitServer(log *logrus.Logger, db *gorm.DB) {
 			Scan(&messageStats)
 		
 		detail.TotalMessages = messageStats.Count
-		detail.FirstSeen = messageStats.FirstSeen
-		detail.LastSeen = messageStats.LastSeen
+		
+		// Parse time strings - try multiple formats
+		timeFormats := []string{
+			"2006-01-02 15:04:05",
+			"2006-01-02T15:04:05Z",
+			"2006-01-02T15:04:05",
+			time.RFC3339,
+		}
+		
+		for _, format := range timeFormats {
+			if t, err := time.Parse(format, messageStats.FirstSeen); err == nil {
+				detail.FirstSeen = t
+				break
+			}
+		}
+		
+		for _, format := range timeFormats {
+			if t, err := time.Parse(format, messageStats.LastSeen); err == nil {
+				detail.LastSeen = t
+				break
+			}
+		}
 
 		// Get counts from specialized tables
 		var blockCount int64
@@ -1115,18 +1135,35 @@ func InitServer(log *logrus.Logger, db *gorm.DB) {
 		// Update first/last seen times based on all tables
 		updateTimeRange := func(tableName string) {
 			var times struct {
-				FirstSeen time.Time
-				LastSeen  time.Time
+				FirstSeen string
+				LastSeen  string
 			}
 			if err := db.Table(tableName).
 				Select("MIN(received_at) as first_seen, MAX(received_at) as last_seen").
 				Where("peer_id = ?", peerID).
 				Scan(&times).Error; err == nil {
-				if !times.FirstSeen.IsZero() && (detail.FirstSeen.IsZero() || times.FirstSeen.Before(detail.FirstSeen)) {
-					detail.FirstSeen = times.FirstSeen
+				
+				// Parse time strings
+				var firstSeen, lastSeen time.Time
+				for _, format := range timeFormats {
+					if t, err := time.Parse(format, times.FirstSeen); err == nil {
+						firstSeen = t
+						break
+					}
 				}
-				if !times.LastSeen.IsZero() && times.LastSeen.After(detail.LastSeen) {
-					detail.LastSeen = times.LastSeen
+				
+				for _, format := range timeFormats {
+					if t, err := time.Parse(format, times.LastSeen); err == nil {
+						lastSeen = t
+						break
+					}
+				}
+				
+				if !firstSeen.IsZero() && (detail.FirstSeen.IsZero() || firstSeen.Before(detail.FirstSeen)) {
+					detail.FirstSeen = firstSeen
+				}
+				if !lastSeen.IsZero() && lastSeen.After(detail.LastSeen) {
+					detail.LastSeen = lastSeen
 				}
 			}
 		}

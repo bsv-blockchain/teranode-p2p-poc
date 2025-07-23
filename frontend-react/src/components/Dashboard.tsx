@@ -7,7 +7,6 @@ import { NetworkSelector } from './NetworkSelector';
 import { MessageTypeFilter } from './MessageTypeFilter';
 import { PeerFilter } from './PeerFilter';
 import PaginationComponent from './Pagination';
-import MessageStatsComponent from './MessageStats';
 import WebSocketStatusComponent from './WebSocketStatus';
 import { 
   BlockCard, 
@@ -214,10 +213,6 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="mb-6">
-          <MessageStatsComponent />
-        </div>
 
         {/* Secondary Filters */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 mb-6">
