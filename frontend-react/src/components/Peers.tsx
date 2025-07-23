@@ -10,8 +10,9 @@ const Peers: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
-  const peersPerPage = 20;
+  const peersPerPage = 12;
 
   useEffect(() => {
     fetchPeers();
@@ -56,6 +57,37 @@ const Peers: React.FC = () => {
     return `${days} days ago`;
   };
 
+  const getNetworkColor = (network: string) => {
+    switch (network) {
+      case 'mainnet': return 'from-green-400 to-green-600';
+      case 'testnet': return 'from-blue-400 to-blue-600';
+      case 'regtest': return 'from-purple-400 to-purple-600';
+      case 'stn': return 'from-orange-400 to-orange-600';
+      case 'teratestnet': return 'from-pink-400 to-pink-600';
+      case 'tstn': return 'from-indigo-400 to-indigo-600';
+      default: return 'from-gray-400 to-gray-600';
+    }
+  };
+
+  const getMessageTypeIcon = (type: string) => {
+    switch (type) {
+      case 'block': return '🔲';
+      case 'mining_on': return '⛏️';
+      case 'subtree': return '🌳';
+      case 'handshake': return '🤝';
+      case 'rejected_tx': return '❌';
+      case 'bestblock': return '🏆';
+      default: return '📦';
+    }
+  };
+
+  const getActivityLevel = (messageCount: number) => {
+    if (messageCount > 10000) return { level: 'Very High', color: 'from-red-500 to-orange-500' };
+    if (messageCount > 5000) return { level: 'High', color: 'from-orange-500 to-yellow-500' };
+    if (messageCount > 1000) return { level: 'Medium', color: 'from-yellow-500 to-green-500' };
+    return { level: 'Low', color: 'from-green-500 to-blue-500' };
+  };
+
   // Filter peers based on search term
   const filteredPeers = peers.filter(peer => 
     peer.peerID.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -67,17 +99,14 @@ const Peers: React.FC = () => {
 
   if (isLoading && peers.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 p-4">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4">
         <div className="max-w-7xl mx-auto">
-          <h1 className="text-3xl font-bold text-gray-900 mb-8">Network Peers</h1>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-            <div className="animate-pulse">
-              <div className="h-4 bg-gray-200 rounded w-1/4 mb-4"></div>
-              <div className="space-y-3">
-                {[...Array(5)].map((_, i) => (
-                  <div key={i} className="h-20 bg-gray-200 rounded"></div>
-                ))}
-              </div>
+          <div className="animate-pulse">
+            <div className="h-12 bg-gray-200 rounded-lg w-48 mb-8"></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="bg-white rounded-2xl p-6 shadow-lg h-64"></div>
+              ))}
             </div>
           </div>
         </div>
@@ -87,14 +116,13 @@ const Peers: React.FC = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 p-4">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4">
         <div className="max-w-7xl mx-auto">
-          <h1 className="text-3xl font-bold text-gray-900 mb-8">Network Peers</h1>
-          <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-            <p className="text-red-600">{error}</p>
+          <div className="bg-red-50 border border-red-200 rounded-xl p-6">
+            <p className="text-red-600 text-center">{error}</p>
             <button 
               onClick={fetchPeers}
-              className="mt-2 text-red-600 hover:text-red-800 underline"
+              className="mt-4 mx-auto block px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
             >
               Try again
             </button>
@@ -105,162 +133,301 @@ const Peers: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4">
       <div className="max-w-7xl mx-auto">
+        {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Network Peers</h1>
-          <p className="text-gray-600">
-            Total peers: <span className="font-semibold">{totalPeers}</span>
-          </p>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
+            <div>
+              <h1 className="text-4xl font-bold text-gray-900 mb-2">Network Peers</h1>
+              <p className="text-gray-600">
+                Monitoring <span className="font-semibold text-gray-900">{totalPeers}</span> active peers
+              </p>
+            </div>
+            
+            {/* View Mode Toggle */}
+            <div className="flex items-center space-x-2 mt-4 sm:mt-0">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`p-2 rounded-lg transition-colors ${
+                  viewMode === 'grid' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-white text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                </svg>
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`p-2 rounded-lg transition-colors ${
+                  viewMode === 'list' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-white text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          {/* Search Bar */}
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search by peer ID, user agent, or network..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full px-4 py-3 pl-12 bg-white border border-gray-200 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+            />
+            <svg className="absolute left-4 top-3.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
         </div>
 
-        {/* Search Bar */}
-        <div className="mb-6">
-          <input
-            type="text"
-            placeholder="Search by peer ID, user agent, or network..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-        </div>
-
-        {/* Peers Table */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Peer ID
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Messages
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Networks
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Message Types
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Last Seen
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    User Agent
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredPeers.map((peer) => (
-                  <tr key={peer.peerID} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {peer.peerID.substring(0, 16)}...
-                      </div>
-                      <div className="text-xs text-gray-500">
+        {/* Peers Display */}
+        {viewMode === 'grid' ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            {filteredPeers.map((peer) => {
+              const activity = getActivityLevel(peer.totalMessages);
+              return (
+                <div key={peer.peerID} className="bg-white rounded-2xl shadow-lg overflow-hidden transform hover:scale-105 transition-all duration-300">
+                  {/* Activity Level Header */}
+                  <div className={`h-2 bg-gradient-to-r ${activity.color}`} />
+                  
+                  <div className="p-6">
+                    {/* Peer ID */}
+                    <div className="mb-4">
+                      <p className="text-xs text-gray-500 mb-1">Peer ID</p>
+                      <p className="font-mono text-sm text-gray-900 break-all">
                         {peer.peerID}
+                      </p>
+                    </div>
+
+                    {/* Stats Grid */}
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3">
+                        <p className="text-xs text-blue-600 mb-1">Messages</p>
+                        <p className="text-xl font-bold text-blue-900">{peer.totalMessages.toLocaleString()}</p>
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900 font-semibold">
-                        {peer.totalMessages.toLocaleString()}
+                      <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-3">
+                        <p className="text-xs text-green-600 mb-1">Activity</p>
+                        <p className="text-sm font-semibold text-green-900">{activity.level}</p>
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    </div>
+
+                    {/* Networks */}
+                    <div className="mb-4">
+                      <p className="text-xs text-gray-500 mb-2">Networks</p>
                       <div className="flex flex-wrap gap-1">
                         {peer.networks.map((network) => (
                           <span
                             key={network}
-                            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                              network === 'mainnet' ? 'bg-green-100 text-green-800' :
-                              network === 'testnet' ? 'bg-blue-100 text-blue-800' :
-                              'bg-gray-100 text-gray-800'
-                            }`}
+                            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gradient-to-r ${getNetworkColor(network)} text-white`}
                           >
                             {network}
                           </span>
                         ))}
                       </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-xs text-gray-600 space-y-1">
+                    </div>
+
+                    {/* Message Types */}
+                    <div className="mb-4">
+                      <p className="text-xs text-gray-500 mb-2">Message Types</p>
+                      <div className="flex flex-wrap gap-2">
                         {Object.entries(peer.messageTypes).slice(0, 3).map(([type, count]) => (
-                          <div key={type}>
-                            {type}: {count.toLocaleString()}
+                          <div key={type} className="flex items-center space-x-1">
+                            <span className="text-sm">{getMessageTypeIcon(type)}</span>
+                            <span className="text-xs text-gray-600">{count.toLocaleString()}</span>
                           </div>
                         ))}
                         {Object.keys(peer.messageTypes).length > 3 && (
-                          <div className="text-gray-400">
-                            +{Object.keys(peer.messageTypes).length - 3} more
-                          </div>
+                          <span className="text-xs text-gray-400">+{Object.keys(peer.messageTypes).length - 3}</span>
                         )}
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {getTimeSince(peer.lastSeen)}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {formatTime(peer.lastSeen)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-xs text-gray-600 truncate max-w-xs" title={peer.lastUserAgent}>
-                        {peer.lastUserAgent || '-'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <Link
-                        to={`/peers/${peer.peerID}`}
-                        className="text-blue-600 hover:text-blue-900"
-                      >
-                        View Details
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    </div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="bg-gray-50 px-6 py-3 flex items-center justify-between border-t border-gray-200">
-              <div className="text-sm text-gray-700">
-                Showing{' '}
-                <span className="font-medium">
-                  {(currentPage - 1) * peersPerPage + 1}
-                </span>{' '}
-                to{' '}
-                <span className="font-medium">
-                  {Math.min(currentPage * peersPerPage, totalPeers)}
-                </span>{' '}
-                of{' '}
-                <span className="font-medium">{totalPeers}</span> peers
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setCurrentPage(currentPage - 1)}
-                  disabled={currentPage === 1}
-                  className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Previous
-                </button>
-                <button
-                  onClick={() => setCurrentPage(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                  className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Next
-                </button>
-              </div>
+                    {/* Last Seen */}
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <p className="text-xs text-gray-500">Last Seen</p>
+                        <p className="text-sm font-medium text-gray-900">{getTimeSince(peer.lastSeen)}</p>
+                      </div>
+                      {peer.lastBestHeight && (
+                        <div className="text-right">
+                          <p className="text-xs text-gray-500">Best Height</p>
+                          <p className="text-sm font-medium text-gray-900">{peer.lastBestHeight.toLocaleString()}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* User Agent */}
+                    {peer.lastUserAgent && (
+                      <div className="mb-4">
+                        <p className="text-xs text-gray-500 mb-1">User Agent</p>
+                        <p className="text-xs text-gray-600 truncate" title={peer.lastUserAgent}>
+                          {peer.lastUserAgent}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* View Details Button */}
+                    <Link
+                      to={`/peers/${peer.peerID}`}
+                      className="block w-full text-center py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all"
+                    >
+                      View Details
+                    </Link>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="bg-white rounded-2xl shadow-lg overflow-hidden mb-8">
+            <div className="overflow-x-auto">
+              <table className="min-w-full">
+                <thead>
+                  <tr className="bg-gradient-to-r from-gray-50 to-gray-100">
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Peer</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Messages</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Networks</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Activity</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Last Seen</th>
+                    <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {filteredPeers.map((peer) => {
+                    const activity = getActivityLevel(peer.totalMessages);
+                    return (
+                      <tr key={peer.peerID} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-6 py-4">
+                          <div>
+                            <p className="font-mono text-sm text-gray-900">
+                              {peer.peerID.substring(0, 20)}...
+                            </p>
+                            {peer.lastUserAgent && (
+                              <p className="text-xs text-gray-500 truncate max-w-xs" title={peer.lastUserAgent}>
+                                {peer.lastUserAgent}
+                              </p>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center">
+                            <span className="text-lg font-bold text-gray-900">{peer.totalMessages.toLocaleString()}</span>
+                            <div className={`ml-3 w-2 h-8 bg-gradient-to-t ${activity.color} rounded-full`} />
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-wrap gap-1">
+                            {peer.networks.map((network) => (
+                              <span
+                                key={network}
+                                className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gradient-to-r ${getNetworkColor(network)} text-white`}
+                              >
+                                {network}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gradient-to-r ${activity.color} text-white`}>
+                            {activity.level}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">{getTimeSince(peer.lastSeen)}</p>
+                            <p className="text-xs text-gray-500">{formatTime(peer.lastSeen)}</p>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <Link
+                            to={`/peers/${peer.peerID}`}
+                            className="inline-flex items-center px-3 py-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white text-sm rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all"
+                          >
+                            Details
+                          </Link>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-          )}
-        </div>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between bg-white rounded-xl shadow-sm px-6 py-4">
+            <div className="text-sm text-gray-700 mb-4 sm:mb-0">
+              Showing{' '}
+              <span className="font-semibold">
+                {(currentPage - 1) * peersPerPage + 1}
+              </span>{' '}
+              to{' '}
+              <span className="font-semibold">
+                {Math.min(currentPage * peersPerPage, totalPeers)}
+              </span>{' '}
+              of{' '}
+              <span className="font-semibold">{totalPeers}</span> peers
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setCurrentPage(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                Previous
+              </button>
+              
+              <div className="flex space-x-1">
+                {[...Array(Math.min(5, totalPages))].map((_, i) => {
+                  let pageNum: number;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+                  
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`px-3 py-1 text-sm font-medium rounded-lg transition-all ${
+                        currentPage === pageNum
+                          ? 'bg-blue-600 text-white'
+                          : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+              </div>
+              
+              <button
+                onClick={() => setCurrentPage(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
