@@ -10,7 +10,9 @@ import (
 	"gorm.io/gorm"
 	"net/http"
 	"os"
+	"sort"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -332,6 +334,13 @@ func InitServer(log *logrus.Logger, db *gorm.DB) {
 
 	// Stats endpoint - returns message statistics
 	http.HandleFunc("/stats", enableCORS(func(w http.ResponseWriter, r *http.Request) {
+		type TopicStat struct {
+			Topic       string `json:"topic"`
+			MessageCount int64  `json:"messageCount"`
+			Network     string `json:"network,omitempty"`
+			MessageType string `json:"messageType,omitempty"`
+		}
+
 		type Stats struct {
 			TotalMessages     int64             `json:"totalMessages"`
 			UniqueTopics      int               `json:"uniqueTopics"`
@@ -339,10 +348,12 @@ func InitServer(log *logrus.Logger, db *gorm.DB) {
 			MessagesToday     int64             `json:"messagesToday"`
 			LatestBlockHeight map[string]uint32 `json:"latestBlockHeight"`
 			LastMessageTime   *string           `json:"lastMessageTime,omitempty"`
+			TopicStats        []TopicStat       `json:"topicStats"`
 		}
 
 		stats := Stats{
 			LatestBlockHeight: make(map[string]uint32),
+			TopicStats:        []TopicStat{},
 		}
 
 		// Count messages from all tables
@@ -375,6 +386,196 @@ func InitServer(log *logrus.Logger, db *gorm.DB) {
 		if err := db.Table("messages").Distinct("topic").Pluck("topic", &topics).Error; err == nil {
 			stats.UniqueTopics = len(topics)
 		}
+
+		// Get topic statistics - count messages per topic
+		type TopicCount struct {
+			Topic string
+			Count int64
+		}
+		var topicCounts []TopicCount
+		if err := db.Table("messages").
+			Select("topic, COUNT(*) as count").
+			Group("topic").
+			Order("count DESC").
+			Find(&topicCounts).Error; err == nil {
+			for _, tc := range topicCounts {
+				// Parse network and message type from topic format: bitcoin/{network}-{message_type}
+				network := ""
+				messageType := ""
+				if len(tc.Topic) > 8 && tc.Topic[:8] == "bitcoin/" {
+					parts := tc.Topic[8:]
+					if dashIndex := strings.Index(parts, "-"); dashIndex > 0 {
+						network = parts[:dashIndex]
+						messageType = parts[dashIndex+1:]
+					}
+				}
+				
+				stats.TopicStats = append(stats.TopicStats, TopicStat{
+					Topic:        tc.Topic,
+					MessageCount: tc.Count,
+					Network:      network,
+					MessageType:  messageType,
+				})
+			}
+		}
+
+		// Also add counts from specialized tables for better accuracy
+		// These tables store parsed messages and might have different counts
+		
+		// Count blocks by network
+		type NetworkCount struct {
+			Network string
+			Count   int64
+		}
+		var blockCounts []NetworkCount
+		if err := db.Table("blocks").
+			Select("network, COUNT(*) as count").
+			Group("network").
+			Find(&blockCounts).Error; err == nil {
+			for _, nc := range blockCounts {
+				if nc.Network != "" {
+					topic := "bitcoin/" + nc.Network + "-block"
+					// Update existing topic stat or add new one
+					found := false
+					for i, ts := range stats.TopicStats {
+						if ts.Topic == topic {
+							stats.TopicStats[i].MessageCount = nc.Count
+							found = true
+							break
+						}
+					}
+					if !found {
+						stats.TopicStats = append(stats.TopicStats, TopicStat{
+							Topic:        topic,
+							MessageCount: nc.Count,
+							Network:      nc.Network,
+							MessageType:  "block",
+						})
+					}
+				}
+			}
+		}
+
+		// Count mining messages by network
+		var miningCounts []NetworkCount
+		if err := db.Table("mining_ons").
+			Select("network, COUNT(*) as count").
+			Group("network").
+			Find(&miningCounts).Error; err == nil {
+			for _, nc := range miningCounts {
+				if nc.Network != "" {
+					topic := "bitcoin/" + nc.Network + "-mining_on"
+					found := false
+					for i, ts := range stats.TopicStats {
+						if ts.Topic == topic {
+							stats.TopicStats[i].MessageCount = nc.Count
+							found = true
+							break
+						}
+					}
+					if !found {
+						stats.TopicStats = append(stats.TopicStats, TopicStat{
+							Topic:        topic,
+							MessageCount: nc.Count,
+							Network:      nc.Network,
+							MessageType:  "mining_on",
+						})
+					}
+				}
+			}
+		}
+
+		// Count subtrees by network
+		var subtreeCounts []NetworkCount
+		if err := db.Table("subtrees").
+			Select("network, COUNT(*) as count").
+			Group("network").
+			Find(&subtreeCounts).Error; err == nil {
+			for _, nc := range subtreeCounts {
+				if nc.Network != "" {
+					topic := "bitcoin/" + nc.Network + "-subtree"
+					found := false
+					for i, ts := range stats.TopicStats {
+						if ts.Topic == topic {
+							stats.TopicStats[i].MessageCount = nc.Count
+							found = true
+							break
+						}
+					}
+					if !found {
+						stats.TopicStats = append(stats.TopicStats, TopicStat{
+							Topic:        topic,
+							MessageCount: nc.Count,
+							Network:      nc.Network,
+							MessageType:  "subtree",
+						})
+					}
+				}
+			}
+		}
+
+		// Count handshakes by network
+		var handshakeCounts []NetworkCount
+		if err := db.Table("handshakes").
+			Select("network, COUNT(*) as count").
+			Group("network").
+			Find(&handshakeCounts).Error; err == nil {
+			for _, nc := range handshakeCounts {
+				if nc.Network != "" {
+					topic := "bitcoin/" + nc.Network + "-handshake"
+					found := false
+					for i, ts := range stats.TopicStats {
+						if ts.Topic == topic {
+							stats.TopicStats[i].MessageCount = nc.Count
+							found = true
+							break
+						}
+					}
+					if !found {
+						stats.TopicStats = append(stats.TopicStats, TopicStat{
+							Topic:        topic,
+							MessageCount: nc.Count,
+							Network:      nc.Network,
+							MessageType:  "handshake",
+						})
+					}
+				}
+			}
+		}
+
+		// Count rejected transactions by network
+		var rejectedTxCounts []NetworkCount
+		if err := db.Table("rejected_txes").
+			Select("network, COUNT(*) as count").
+			Group("network").
+			Find(&rejectedTxCounts).Error; err == nil {
+			for _, nc := range rejectedTxCounts {
+				if nc.Network != "" {
+					topic := "bitcoin/" + nc.Network + "-rejected_tx"
+					found := false
+					for i, ts := range stats.TopicStats {
+						if ts.Topic == topic {
+							stats.TopicStats[i].MessageCount = nc.Count
+							found = true
+							break
+						}
+					}
+					if !found {
+						stats.TopicStats = append(stats.TopicStats, TopicStat{
+							Topic:        topic,
+							MessageCount: nc.Count,
+							Network:      nc.Network,
+							MessageType:  "rejected_tx",
+						})
+					}
+				}
+			}
+		}
+
+		// Sort topic stats by message count descending
+		sort.Slice(stats.TopicStats, func(i, j int) bool {
+			return stats.TopicStats[i].MessageCount > stats.TopicStats[j].MessageCount
+		})
 
 		// Get unique peers from all tables
 		peerMap := make(map[string]bool)

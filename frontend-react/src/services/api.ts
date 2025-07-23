@@ -278,7 +278,8 @@ export class ApiService {
         uniquePeers: stats.uniquePeers || 0,
         messagesToday: stats.messagesToday || 0,
         latestBlockHeight: stats.latestBlockHeight || {},
-        lastMessageTime: stats.lastMessageTime
+        lastMessageTime: stats.lastMessageTime,
+        topicStats: stats.topicStats || []
       };
     } catch (error) {
       console.error('Error fetching message stats:', error);
@@ -287,7 +288,8 @@ export class ApiService {
         uniqueTopics: 0,
         uniquePeers: 0,
         messagesToday: 0,
-        latestBlockHeight: {}
+        latestBlockHeight: {},
+        topicStats: []
       };
     }
   }

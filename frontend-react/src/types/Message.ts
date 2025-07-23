@@ -30,6 +30,13 @@ export interface ApiResponse {
   pagination: PaginationInfo;
 }
 
+export interface TopicStat {
+  topic: string;
+  messageCount: number;
+  network?: string;
+  messageType?: string;
+}
+
 export interface MessageStats {
   totalMessages: number;
   uniqueTopics: number;
@@ -37,6 +44,7 @@ export interface MessageStats {
   messagesToday: number;
   latestBlockHeight: Record<string, number>;
   lastMessageTime?: string;
+  topicStats: TopicStat[];
 }
 
 export enum WebSocketStatus {

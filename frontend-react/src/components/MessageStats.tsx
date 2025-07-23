@@ -163,6 +163,60 @@ const MessageStatsComponent: React.FC<MessageStatsProps> = ({ className = '' }) 
         </div>
       )}
 
+      {/* Topic Statistics */}
+      {stats.topicStats && stats.topicStats.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 mb-4">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Messages by Topic</h3>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Network
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Message Type
+                  </th>
+                  <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Count
+                  </th>
+                  <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Percentage
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {stats.topicStats.map((topic, index) => {
+                  const percentage = ((topic.messageCount / stats.totalMessages) * 100).toFixed(2);
+                  return (
+                    <tr key={index} className="hover:bg-gray-50">
+                      <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                          topic.network === 'mainnet' ? 'bg-green-100 text-green-800' :
+                          topic.network === 'testnet' ? 'bg-blue-100 text-blue-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {topic.network || 'unknown'}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                        {topic.messageType || topic.topic}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900 text-right font-medium">
+                        {topic.messageCount.toLocaleString()}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-600 text-right">
+                        {percentage}%
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {stats.lastMessageTime && (
         <div className="text-center">
           <p className="text-sm text-gray-600">
