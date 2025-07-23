@@ -42,6 +42,7 @@ export const Dashboard: React.FC = () => {
   const [recentPeers, setRecentPeers] = useState<string[]>([]);
   const [newMessageIds, setNewMessageIds] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string>('');
+  const [stats, setStats] = useState({ totalMessages: 0, uniquePeers: 0 });
 
   // WebSocket message handler
   const handleWebSocketMessage = useCallback((message: Message) => {
@@ -79,12 +80,17 @@ export const Dashboard: React.FC = () => {
   useEffect(() => {
     const loadInitialData = async () => {
       try {
-        const [networksData, messageTypesData] = await Promise.all([
+        const [networksData, messageTypesData, statsData] = await Promise.all([
           ApiService.getNetworks(),
-          ApiService.getMessageTypes()
+          ApiService.getMessageTypes(),
+          ApiService.getMessageStats()
         ]);
         setNetworks(networksData);
         setMessageTypes(messageTypesData);
+        setStats({ 
+          totalMessages: statsData.totalMessages || 0, 
+          uniquePeers: statsData.uniquePeers || 0 
+        });
       } catch (error) {
         console.error('Error loading initial data:', error);
         setError('Failed to load initial data');
@@ -177,34 +183,80 @@ export const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-        {/* Top Header with Network Selection */}
-        <div className="mb-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-              <div className="flex items-center justify-between sm:block">
-                <img 
-                  src="/bsv-logo.svg" 
-                  alt="BSV Association" 
-                  className="h-6 sm:h-8 w-auto"
-                />
-                <div className="sm:hidden">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        {/* Hero Section */}
+        <div className="mb-10">
+          <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-3xl shadow-2xl p-8 sm:p-12 text-white relative overflow-hidden">
+            {/* Background Pattern */}
+            <div className="absolute inset-0 opacity-10">
+              <div className="absolute -top-4 -right-4 w-72 h-72 bg-white rounded-full blur-3xl"></div>
+              <div className="absolute -bottom-8 -left-8 w-96 h-96 bg-white rounded-full blur-3xl"></div>
+            </div>
+            
+            {/* Content */}
+            <div className="relative z-10">
+              <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
+                <div className="flex-1">
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="w-16 h-16 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center">
+                      <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-2">Teranode P2P Monitor</h1>
+                      <p className="text-lg sm:text-xl text-blue-100">Real-time Bitcoin SV Network Intelligence</p>
+                    </div>
+                  </div>
+                  
+                  <p className="text-base sm:text-lg text-blue-50 leading-relaxed mb-6 max-w-3xl">
+                    Welcome to the Teranode P2P Monitor, your window into the Bitcoin SV network's peer-to-peer communication layer. 
+                    This platform provides real-time visibility into network messages, peer interactions, and blockchain activity across 
+                    multiple BSV networks. Monitor block propagation, transaction flows, and network health metrics as they happen, 
+                    giving developers and operators unprecedented insight into the Teranode infrastructure.
+                  </p>
+                  
+                  <div className="flex flex-wrap gap-4">
+                    <div className="flex items-center gap-2 bg-white/20 backdrop-blur px-4 py-2 rounded-full">
+                      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                      <span className="text-sm font-medium">Live Monitoring</span>
+                    </div>
+                    <div className="flex items-center gap-2 bg-white/20 backdrop-blur px-4 py-2 rounded-full">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                      </svg>
+                      <span className="text-sm font-medium">{stats.totalMessages.toLocaleString()} Messages</span>
+                    </div>
+                    <div className="flex items-center gap-2 bg-white/20 backdrop-blur px-4 py-2 rounded-full">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                      <span className="text-sm font-medium">{stats.uniquePeers} Active Peers</span>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* WebSocket Status */}
+                <div className="lg:absolute lg:top-8 lg:right-8">
                   <WebSocketStatusComponent status={wsStatus} onReconnect={reconnect} />
                 </div>
               </div>
-              <div className="sm:border-l-2 sm:border-gray-300 sm:pl-4">
-                <h1 className="text-xl sm:text-3xl font-display font-bold text-bsv-primary">Teranode P2P Monitor</h1>
-                <p className="text-xs sm:text-base mt-0.5 sm:mt-1 text-bsv-text">Real-time Bitcoin SV network message monitoring</p>
-              </div>
-            </div>
-            <div className="hidden sm:block">
-              <WebSocketStatusComponent status={wsStatus} onReconnect={reconnect} />
             </div>
           </div>
-          
-          {/* Network Selection - Prominent at Top */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
+        </div>
+
+        {/* Network Selection - Elevated Design */}
+        <div className="mb-8">
+          <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/50 p-6 sm:p-8">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                </svg>
+              </div>
+              <h2 className="text-xl font-semibold text-gray-900">Select Network</h2>
+            </div>
             <NetworkSelector
               selectedNetwork={selectedNetwork}
               onNetworkChange={setSelectedNetwork}
@@ -215,9 +267,16 @@ export const Dashboard: React.FC = () => {
 
 
         {/* Secondary Filters */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 mb-6">
-          <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-4 sm:mb-6">Message Filters</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+        <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/50 p-6 sm:p-8 mb-8">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+            </div>
+            <h2 className="text-xl font-semibold text-gray-900">Filter Messages</h2>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <MessageTypeFilter
               selectedType={selectedMessageType}
               onTypeChange={setSelectedMessageType}
@@ -233,80 +292,111 @@ export const Dashboard: React.FC = () => {
 
         {/* Error Display */}
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <div className="mb-8 bg-red-50/80 backdrop-blur-xl border border-red-200 rounded-2xl p-6 shadow-lg">
             <div className="flex">
               <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                </svg>
+                <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
+                  <svg className="h-6 w-6 text-red-600" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                </div>
               </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800">Error</h3>
-                <div className="mt-2 text-sm text-red-700">{error}</div>
+              <div className="ml-4">
+                <h3 className="text-base font-semibold text-red-900">Error occurred</h3>
+                <div className="mt-1 text-sm text-red-700">{error}</div>
               </div>
             </div>
           </div>
         )}
 
-        {/* Results */}
-        <div className="space-y-6">
+        {/* Messages Section */}
+        <div className="space-y-8">
           {/* Results Header */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <h2 className="text-xl font-semibold text-gray-900">
-                {selectedNetwork !== 'all' && `${selectedNetwork.toUpperCase()} Network - `}
-                {selectedMessageType === 'all' ? 'All Messages' : 
-                 selectedMessageType.charAt(0).toUpperCase() + selectedMessageType.slice(1).replace('_', ' ')}
-              </h2>
-              {pagination && (
-                <span className="text-sm text-gray-500">
-                  {pagination.totalItems} total results
-                </span>
+          <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/50 px-8 py-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                  {selectedNetwork !== 'all' && (
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gradient-to-r from-blue-500 to-indigo-600 text-white mr-2">
+                      {selectedNetwork.toUpperCase()}
+                    </span>
+                  )}
+                  {selectedMessageType === 'all' ? 'All Messages' : 
+                   selectedMessageType.split('_').map(word => 
+                     word.charAt(0).toUpperCase() + word.slice(1)
+                   ).join(' ')
+                  }
+                </h2>
+                {pagination && (
+                  <p className="text-gray-600">
+                    Showing <span className="font-semibold text-gray-900">{data.length}</span> of{' '}
+                    <span className="font-semibold text-gray-900">{pagination.totalItems.toLocaleString()}</span> messages
+                  </p>
+                )}
+              </div>
+              
+              {loading && (
+                <div className="flex items-center gap-3 bg-blue-50 px-4 py-2 rounded-full">
+                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
+                  <span className="text-sm font-medium text-blue-700">Updating...</span>
+                </div>
               )}
             </div>
-            
-            {loading && (
-              <div className="flex items-center space-x-2 text-gray-500">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600"></div>
-                <span className="text-sm">Loading...</span>
-              </div>
-            )}
           </div>
 
           {/* Messages Grid */}
           {data.length > 0 ? (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-              {data.map((item, index) => renderMessageCard(item, index))}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {data.map((item, index) => (
+                <div key={item.ID || index} className="transform transition-all duration-300 hover:scale-[1.02]">
+                  {renderMessageCard(item, index)}
+                </div>
+              ))}
             </div>
           ) : loading ? (
-            <div className="text-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-              <p className="mt-4 text-gray-500">Loading messages...</p>
+            <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/50 p-16 text-center">
+              <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full mb-6">
+                <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
+              </div>
+              <p className="text-lg font-medium text-gray-700">Loading messages...</p>
+              <p className="text-sm text-gray-500 mt-2">Fetching real-time data from the network</p>
             </div>
           ) : (
-            <div className="text-center py-12">
-              <div className="text-gray-400 mb-4">
-                <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2 2v-5m16 0h-2M4 13h2m0 0v9h3v-4a1 1 0 011-1h2a1 1 0 011 1v4h3v-9" />
+            <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/50 p-16 text-center">
+              <div className="inline-flex items-center justify-center w-20 h-20 bg-gray-100 rounded-full mb-6">
+                <svg className="w-10 h-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
                 </svg>
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No messages found</h3>
-              <p className="text-gray-500">
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">No messages found</h3>
+              <p className="text-gray-600 max-w-md mx-auto">
                 {selectedNetwork !== 'all' 
-                  ? `No ${selectedMessageType === 'all' ? 'messages' : selectedMessageType} messages found for ${selectedNetwork} network.`
-                  : 'Try adjusting your filters to see different results.'
+                  ? `No ${selectedMessageType === 'all' ? 'messages' : selectedMessageType.replace('_', ' ')} messages available for the ${selectedNetwork} network.`
+                  : 'Try adjusting your filters or wait for new messages to arrive.'
                 }
               </p>
+              <button 
+                onClick={() => {
+                  setSelectedNetwork('all');
+                  setSelectedMessageType('all');
+                  setPeerFilter('');
+                }}
+                className="mt-6 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-medium hover:from-blue-600 hover:to-indigo-700 transition-all transform hover:scale-105"
+              >
+                Clear All Filters
+              </button>
             </div>
           )}
 
           {/* Pagination */}
           {pagination && data.length > 0 && (
             <div className="flex justify-center">
-              <PaginationComponent
-                pagination={pagination}
-                onPageChange={setCurrentPage}
-              />
+              <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/50 p-2">
+                <PaginationComponent
+                  pagination={pagination}
+                  onPageChange={setCurrentPage}
+                />
+              </div>
             </div>
           )}
         </div>
