@@ -9,6 +9,8 @@ interface MessageCardBaseProps {
   network: string;
   receivedAt: string;
   isNew?: boolean;
+  sentFromPeer?: string;
+  peerID?: string;
 }
 
 const MessageCardBase: React.FC<MessageCardBaseProps> = ({ 
@@ -18,7 +20,9 @@ const MessageCardBase: React.FC<MessageCardBaseProps> = ({
   title, 
   network, 
   receivedAt,
-  isNew = false 
+  isNew = false,
+  sentFromPeer,
+  peerID
 }) => {
   const formatTime = (timestamp: string) => {
     if (!timestamp) return 'Unknown time';
@@ -81,6 +85,37 @@ const MessageCardBase: React.FC<MessageCardBaseProps> = ({
       
       <div className="space-y-3">
         {children}
+        
+        {/* Show peer information if we have it */}
+        {(sentFromPeer || peerID) && (
+          <div className="border-t border-gray-100 pt-3 space-y-2">
+            {/* Show both peers if they're different */}
+            {sentFromPeer && peerID && sentFromPeer !== peerID ? (
+              <>
+                <div>
+                  <span className="text-xs sm:text-sm font-medium text-gray-500">Sent from Peer</span>
+                  <p className="font-mono text-xs sm:text-sm text-gray-700 truncate" title={sentFromPeer}>
+                    {sentFromPeer}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-xs sm:text-sm font-medium text-gray-500">Message Peer ID</span>
+                  <p className="font-mono text-xs sm:text-sm text-gray-900 truncate" title={peerID}>
+                    {peerID}
+                  </p>
+                </div>
+              </>
+            ) : (
+              /* Show single peer ID if they're the same or only one exists */
+              <div>
+                <span className="text-xs sm:text-sm font-medium text-gray-500">Peer ID</span>
+                <p className="font-mono text-xs sm:text-sm text-gray-900 truncate" title={peerID || sentFromPeer}>
+                  {peerID || sentFromPeer}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -98,6 +133,8 @@ export const BlockCard: React.FC<BlockCardProps> = ({ block, isNew }) => (
     network={block.Network}
     receivedAt={block.ReceivedAt}
     isNew={isNew}
+    sentFromPeer={block.sentFromPeer}
+    peerID={block.PeerID}
   >
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
       <div>
@@ -125,13 +162,6 @@ export const BlockCard: React.FC<BlockCardProps> = ({ block, isNew }) => (
         </a>
       </div>
     )}
-    
-    <div>
-      <span className="text-sm font-medium text-gray-500">Peer ID</span>
-      <p className="font-mono text-sm text-gray-900 truncate" title={block.PeerID || ''}>
-        {block.PeerID || 'N/A'}
-      </p>
-    </div>
   </MessageCardBase>
 );
 
@@ -147,6 +177,8 @@ export const MiningCard: React.FC<MiningCardProps> = ({ mining, isNew }) => (
     network={mining.Network}
     receivedAt={mining.ReceivedAt}
     isNew={isNew}
+    sentFromPeer={mining.sentFromPeer}
+    peerID={mining.PeerID}
   >
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
       <div>
@@ -200,6 +232,8 @@ export const SubtreeCard: React.FC<SubtreeCardProps> = ({ subtree, isNew }) => (
     network={subtree.Network}
     receivedAt={subtree.ReceivedAt}
     isNew={isNew}
+    sentFromPeer={subtree.sentFromPeer}
+    peerID={subtree.PeerID}
   >
     <div>
       <span className="text-sm font-medium text-gray-500">Hash</span>
@@ -221,13 +255,6 @@ export const SubtreeCard: React.FC<SubtreeCardProps> = ({ subtree, isNew }) => (
         </a>
       </div>
     )}
-    
-    <div>
-      <span className="text-sm font-medium text-gray-500">Peer ID</span>
-      <p className="font-mono text-sm text-gray-900 truncate" title={subtree.PeerID || ''}>
-        {subtree.PeerID || 'N/A'}
-      </p>
-    </div>
   </MessageCardBase>
 );
 
@@ -236,30 +263,16 @@ interface HandshakeCardProps {
   isNew?: boolean;
 }
 
-export const HandshakeCard: React.FC<HandshakeCardProps> = ({ handshake, isNew }) => {
-  // Debug logging for handshake card
-  console.log('[HandshakeCard] Rendering with data:', {
-    handshake,
-    hasAllFields: {
-      Type: handshake.Type,
-      BestHeight: handshake.BestHeight,
-      BestHash: handshake.BestHash,
-      UserAgent: handshake.UserAgent,
-      Services: handshake.Services,
-      Network: handshake.Network,
-      ReceivedAt: handshake.ReceivedAt,
-      PeerID: handshake.PeerID
-    }
-  });
-  
-  return (
-    <MessageCardBase
-      icon="🤝"
-      title={`Handshake - ${(handshake.Type || 'UNKNOWN').toUpperCase()}`}
-      network={handshake.Network}
-      receivedAt={handshake.ReceivedAt}
-      isNew={isNew}
-    >
+export const HandshakeCard: React.FC<HandshakeCardProps> = ({ handshake, isNew }) => (
+  <MessageCardBase
+    icon="🤝"
+    title={`Handshake - ${(handshake.Type || 'UNKNOWN').toUpperCase()}`}
+    network={handshake.Network}
+    receivedAt={handshake.ReceivedAt}
+    isNew={isNew}
+    sentFromPeer={handshake.sentFromPeer}
+    peerID={handshake.PeerID}
+  >
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
         <div>
           <span className="text-xs sm:text-sm font-medium text-gray-500">Best Height</span>
@@ -290,16 +303,8 @@ export const HandshakeCard: React.FC<HandshakeCardProps> = ({ handshake, isNew }
         <span className="text-sm font-medium text-gray-500">User Agent</span>
         <p className="text-sm text-gray-900">{handshake.UserAgent || 'Unknown'}</p>
       </div>
-      
-      <div>
-        <span className="text-sm font-medium text-gray-500">Peer ID</span>
-        <p className="font-mono text-sm text-gray-900 truncate" title={handshake.PeerID || ''}>
-          {handshake.PeerID || 'N/A'}
-        </p>
-      </div>
-    </MessageCardBase>
-  );
-};
+  </MessageCardBase>
+);
 
 interface RejectedTxCardProps {
   rejectedTx: RejectedTx;
@@ -314,6 +319,8 @@ export const RejectedTxCard: React.FC<RejectedTxCardProps> = ({ rejectedTx, isNe
     receivedAt={rejectedTx.ReceivedAt}
     isNew={isNew}
     className="border-l-4 border-l-red-400"
+    sentFromPeer={rejectedTx.sentFromPeer}
+    peerID={rejectedTx.PeerID}
   >
     <div>
       <span className="text-sm font-medium text-gray-500">Transaction ID</span>
@@ -326,13 +333,6 @@ export const RejectedTxCard: React.FC<RejectedTxCardProps> = ({ rejectedTx, isNe
       <span className="text-xs sm:text-sm font-medium text-gray-500">Reason</span>
       <p className="text-xs sm:text-sm text-gray-900 bg-red-50 p-2 rounded break-words">
         {rejectedTx.Reason || 'No reason provided'}
-      </p>
-    </div>
-    
-    <div>
-      <span className="text-sm font-medium text-gray-500">Peer ID</span>
-      <p className="font-mono text-sm text-gray-900 truncate" title={rejectedTx.PeerID || ''}>
-        {rejectedTx.PeerID || 'N/A'}
       </p>
     </div>
   </MessageCardBase>

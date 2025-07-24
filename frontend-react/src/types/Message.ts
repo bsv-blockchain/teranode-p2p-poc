@@ -101,8 +101,10 @@ export interface Block {
   Hash: string;
   Height: number;
   DataHubURL: string;
-  PeerID: string;
+  PeerID: string;  // Peer ID from within the message data
+  sentFromPeer?: string;  // Peer who sent this message to us
   ReceivedAt: string;
+  Topic?: string;  // For WebSocket messages
 }
 
 export interface MiningOn {
@@ -111,12 +113,14 @@ export interface MiningOn {
   Hash: string;
   PreviousHash: string;
   DataHubURL: string;
-  PeerID: string;
+  PeerID: string;  // Peer ID from within the message data
+  sentFromPeer?: string;  // Peer who sent this message to us
   Height: number;
   Miner: string;
   SizeInBytes: number;
   TxCount: number;
   ReceivedAt: string;
+  Topic?: string;  // For WebSocket messages
 }
 
 export interface Subtree {
@@ -124,21 +128,25 @@ export interface Subtree {
   Network: string;
   Hash: string;
   DataHubURL: string;
-  PeerID: string;
+  PeerID: string;  // Peer ID from within the message data
+  sentFromPeer?: string;  // Peer who sent this message to us
   ReceivedAt: string;
+  Topic?: string;  // For WebSocket messages
 }
 
 export interface Handshake {
   ID: number;
   Network: string;
   Type: string;
-  PeerID: string;
+  PeerID: string;  // Peer ID from within the message data
+  sentFromPeer?: string;  // Peer who sent this message to us
   BestHeight: number;
   BestHash: string;
   DataHubURL: string;
   UserAgent: string;
   Services: number;
   ReceivedAt: string;
+  Topic?: string;  // For WebSocket messages
 }
 
 export interface RejectedTx {
@@ -146,8 +154,10 @@ export interface RejectedTx {
   Network: string;
   TxID: string;
   Reason: string;
-  PeerID: string;
+  PeerID: string;  // Peer ID from within the message data
+  sentFromPeer?: string;  // Peer who sent this message to us
   ReceivedAt: string;
+  Topic?: string;  // For WebSocket messages
 }
 
 export type MessageType = 'block' | 'miningon' | 'subtree' | 'handshake' | 'rejected_tx';

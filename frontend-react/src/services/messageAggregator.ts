@@ -99,13 +99,23 @@ export class MessageAggregatorService {
       }
 
 
-      // Filter by network if specified
+      // Apply filters
       let filteredMessages = aggregatedMessages;
+      
+      // Filter by network if specified
       if (filters.network && filters.network !== 'all') {
-        filteredMessages = aggregatedMessages.filter(msg => {
+        filteredMessages = filteredMessages.filter(msg => {
           // Extract network from the data or topic
           const network = msg.data.Network || this.extractNetworkFromTopic(msg.data.Topic);
           return network === filters.network;
+        });
+      }
+      
+      // Filter by peer ID if specified
+      if (filters.peer) {
+        filteredMessages = filteredMessages.filter(msg => {
+          // Check the PeerID field (from message content)
+          return msg.data.PeerID === filters.peer;
         });
       }
 

@@ -17,24 +17,13 @@ export class MessageParser {
       // Parse the JSON data
       const parsedData = JSON.parse(message.Data);
       
-      // Debug logging for handshake messages
-      if (messageType === 'handshake') {
-        console.log('[MessageParser] Parsing handshake message:', {
-          topic: message.Topic,
-          messageType,
-          network,
-          parsedData,
-          rawMessage: message
-        });
-      }
       
       // Create a base object with common fields
       const baseMessage = {
         ID: message.ID,
         ReceivedAt: message.ReceivedAt,
         Network: network,
-        PeerID: message.Peer,
-        Peer: message.Peer,
+        sentFromPeer: message.Peer,  // The peer who sent this message to us
         Topic: message.Topic
       };
 
@@ -50,16 +39,13 @@ export class MessageParser {
           return this.parseSubtreeMessage(baseMessage, parsedData);
         
         case 'handshake':
-          const handshakeResult = this.parseHandshakeMessage(baseMessage, parsedData);
-          console.log('[MessageParser] Parsed handshake result:', handshakeResult);
-          return handshakeResult;
+          return this.parseHandshakeMessage(baseMessage, parsedData);
         
         case 'rejected_tx':
           return this.parseRejectedTxMessage(baseMessage, parsedData);
         
         default:
           // Return the original message for unknown types
-          console.warn('[MessageParser] Unknown message type:', messageType, 'from topic:', message.Topic);
           return message;
       }
     } catch (error) {
@@ -81,6 +67,7 @@ export class MessageParser {
   private static parseBlockMessage(base: any, data: any): Block {
     return {
       ...base,
+      PeerID: data.peer_id || data.PeerID || data.peerId || base.sentFromPeer || '',  // Try to get peer ID from data, fallback to sender
       Hash: data.hash || data.Hash || '',
       Height: data.height || data.Height || 0,
       DataHubURL: data.data_hub_url || data.DataHubURL || '',
@@ -92,6 +79,7 @@ export class MessageParser {
   private static parseMiningMessage(base: any, data: any): MiningOn {
     return {
       ...base,
+      PeerID: data.peer_id || data.PeerID || data.peerId || base.sentFromPeer || '',  // Try to get peer ID from data, fallback to sender
       Hash: data.hash || data.Hash || '',
       PreviousHash: data.previous_hash || data.PreviousHash || '',
       Height: data.height || data.Height || 0,
@@ -105,22 +93,16 @@ export class MessageParser {
   private static parseSubtreeMessage(base: any, data: any): Subtree {
     return {
       ...base,
+      PeerID: data.peer_id || data.PeerID || data.peerId || base.sentFromPeer || '',  // Try to get peer ID from data, fallback to sender
       Hash: data.hash || data.Hash || '',
       DataHubURL: data.data_hub_url || data.DataHubURL || ''
     };
   }
 
   private static parseHandshakeMessage(base: any, data: any): Handshake {
-    console.log('[MessageParser] Handshake raw data fields:', {
-      hasType: 'type' in data,
-      hasType_: 'Type' in data,
-      hasBestHeight: 'best_height' in data,
-      hasBestHeight_: 'BestHeight' in data,
-      dataKeys: Object.keys(data)
-    });
-    
-    const result = {
+    return {
       ...base,
+      PeerID: data.peer_id || data.PeerID || data.peerId || base.sentFromPeer || '',  // Try to get peer ID from data, fallback to sender
       Type: data.type || data.Type || data.handshake_type || 'unknown',
       BestHeight: data.best_height || data.BestHeight || data.bestHeight || 0,
       BestHash: data.best_hash || data.BestHash || data.bestHash || '',
@@ -128,14 +110,12 @@ export class MessageParser {
       UserAgent: data.user_agent || data.UserAgent || data.userAgent || 'Unknown',
       Services: data.services || data.Services || 0
     };
-    
-    console.log('[MessageParser] Handshake parsed result:', result);
-    return result;
   }
 
   private static parseRejectedTxMessage(base: any, data: any): RejectedTx {
     return {
       ...base,
+      PeerID: data.peer_id || data.PeerID || data.peerId || base.sentFromPeer || '',  // Try to get peer ID from data, fallback to sender
       TxID: data.tx_id || data.TxID || '',
       Reason: data.reason || data.Reason || '',
       Code: data.code || data.Code || 0,

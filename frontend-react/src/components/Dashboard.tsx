@@ -46,8 +46,8 @@ export const Dashboard: React.FC = () => {
 
   // WebSocket message handler
   const handleWebSocketMessage = useCallback((message: Message) => {
-    // Only add to current view if we're on the first page with basic filters
-    if (currentPage === 1 && !peerFilter) {
+    // Only add to current view if we're on the first page
+    if (currentPage === 1) {
       // Parse the message to get structured data
       const parsedMessage = MessageParser.parseWebSocketMessage(message);
       
@@ -55,20 +55,14 @@ export const Dashboard: React.FC = () => {
       const messageNetwork = message.Topic.split('/')[1]?.split('-')[0];
       const messageType = message.Topic.split('-')[1];
       
-      // Debug logging for handshake messages
-      if (messageType === 'handshake') {
-        console.log('[Dashboard] WebSocket handshake message:', {
-          topic: message.Topic,
-          extractedType: messageType,
-          selectedMessageType,
-          parsedMessage
-        });
-      }
       
       const matchesNetwork = selectedNetwork === 'all' || messageNetwork === selectedNetwork;
       const matchesType = selectedMessageType === 'all' || messageType === selectedMessageType;
       
-      if (matchesNetwork && matchesType) {
+      // Check peer filter - filter by the parsed PeerID, not sentFromPeer
+      const matchesPeer = !peerFilter || parsedMessage.PeerID === peerFilter;
+      
+      if (matchesNetwork && matchesType && matchesPeer) {
         setData(prev => [parsedMessage, ...prev.slice(0, 19)]);
         setNewMessageIds(prev => new Set(prev).add(parsedMessage.ID));
         
@@ -174,16 +168,6 @@ export const Dashboard: React.FC = () => {
       }
     }
     
-    // Debug logging for handshake rendering
-    if (messageType === 'handshake' || item.Type !== undefined) {
-      console.log('[Dashboard] Rendering handshake card:', {
-        detectedType: messageType,
-        item,
-        hasType: 'Type' in item,
-        hasBestHeight: 'BestHeight' in item,
-        hasUserAgent: 'UserAgent' in item
-      });
-    }
     
     switch (messageType) {
       case 'block':

@@ -1113,8 +1113,8 @@ func InitServer(log *logrus.Logger, db *gorm.DB) {
 		// Messages per hour for the last 24 hours
 		twentyFourHoursAgo := time.Now().Add(-24 * time.Hour)
 		type HourlyCount struct {
-			Hour  time.Time
-			Count int64
+			Hour  string `gorm:"column:hour"`
+			Count int64  `gorm:"column:count"`
 		}
 		var hourlyCounts []HourlyCount
 		
@@ -1128,7 +1128,13 @@ func InitServer(log *logrus.Logger, db *gorm.DB) {
 
 		hourlyStats := make(map[string]int64)
 		for _, hc := range hourlyCounts {
-			hourlyStats[hc.Hour.Format("2006-01-02T15:00:00Z")] = hc.Count
+			// Parse the hour string and format it
+			if t, err := time.Parse("2006-01-02 15:04:05", hc.Hour); err == nil {
+				hourlyStats[t.Format("2006-01-02T15:00:00Z")] = hc.Count
+			} else {
+				// Fallback: use the string as-is
+				hourlyStats[hc.Hour] = hc.Count
+			}
 		}
 		detail.TimeStats["hourly"] = hourlyStats
 
