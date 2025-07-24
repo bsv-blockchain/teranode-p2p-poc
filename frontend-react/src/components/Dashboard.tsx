@@ -446,8 +446,16 @@ export const Dashboard: React.FC = () => {
                 </h2>
                 {pagination && (
                   <p className="text-gray-600">
-                    Showing <span className="font-semibold text-gray-900">{data.length}</span> of{' '}
-                    <span className="font-semibold text-gray-900">{pagination.totalItems.toLocaleString()}</span> messages
+                    {pagination.totalItems > 0 ? (
+                      <>
+                        Showing <span className="font-semibold text-gray-900">
+                          {((pagination.currentPage - 1) * pagination.pageSize + 1).toLocaleString()}-{Math.min(pagination.currentPage * pagination.pageSize, pagination.totalItems).toLocaleString()}
+                        </span> of{' '}
+                        <span className="font-semibold text-gray-900">{pagination.totalItems.toLocaleString()}</span> messages
+                      </>
+                    ) : (
+                      <span className="font-semibold text-gray-900">0 messages</span>
+                    )}
                   </p>
                 )}
               </div>
