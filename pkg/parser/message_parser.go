@@ -14,7 +14,7 @@ type MessageType string
 const (
 	TypeBestBlock  MessageType = "bestblock"
 	TypeBlock      MessageType = "block"
-	TypeMiningOn   MessageType = "mining_on"
+	TypeMiningOn   MessageType = "miningon"
 	TypeSubtree    MessageType = "subtree"
 	TypeHandshake  MessageType = "handshake"
 	TypeRejectedTx MessageType = "rejected_tx"
@@ -66,7 +66,7 @@ func ParseMessage(topic string, data []byte) (*ParsedMessage, error) {
 		}
 		result.Data = msg
 
-	case "mining_on":
+	case "miningon":
 		result.Type = TypeMiningOn
 		var msg p2p.MiningOnMessage
 		if err := json.Unmarshal(data, &msg); err != nil {
@@ -114,7 +114,7 @@ func GetNetworks() []string {
 
 // GetMessageTypes returns all supported message types
 func GetMessageTypes() []string {
-	return []string{"bestblock", "block", "mining_on", "subtree", "handshake", "rejected_tx"}
+	return []string{"bestblock", "block", "miningon", "subtree", "handshake", "rejected_tx"}
 }
 
 // GenerateTopics generates all topic combinations for the given networks
