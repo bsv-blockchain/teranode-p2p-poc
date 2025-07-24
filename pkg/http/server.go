@@ -39,7 +39,7 @@ func enableCORS(next http.HandlerFunc) http.HandlerFunc {
 
 func InitServer(log *logrus.Logger, db *gorm.DB) {
 	// WebSocket endpoint
-	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/api/ws", func(w http.ResponseWriter, r *http.Request) {
 		upgrader := websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool { return true },
 		}
@@ -62,7 +62,7 @@ func InitServer(log *logrus.Logger, db *gorm.DB) {
 		}
 	})
 
-	http.HandleFunc("/messages", enableCORS(func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/api/messages", enableCORS(func(w http.ResponseWriter, r *http.Request) {
 		topic := r.URL.Query().Get("topic")
 		peer := r.URL.Query().Get("peer")
 		// Also support peer_id parameter for consistency with other endpoints
@@ -105,7 +105,7 @@ func InitServer(log *logrus.Logger, db *gorm.DB) {
 	}))
 
 	// Blocks endpoint
-	http.HandleFunc("/blocks", enableCORS(func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/api/blocks", enableCORS(func(w http.ResponseWriter, r *http.Request) {
 		network := r.URL.Query().Get("network")
 		peerID := r.URL.Query().Get("peer_id")
 		hash := r.URL.Query().Get("hash")
@@ -144,7 +144,7 @@ func InitServer(log *logrus.Logger, db *gorm.DB) {
 	}))
 
 	// Mining messages endpoint
-	http.HandleFunc("/mining", enableCORS(func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/api/mining", enableCORS(func(w http.ResponseWriter, r *http.Request) {
 		network := r.URL.Query().Get("network")
 		miner := r.URL.Query().Get("miner")
 		limit := 100
@@ -179,7 +179,7 @@ func InitServer(log *logrus.Logger, db *gorm.DB) {
 	}))
 
 	// Subtrees endpoint
-	http.HandleFunc("/subtrees", enableCORS(func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/api/subtrees", enableCORS(func(w http.ResponseWriter, r *http.Request) {
 		network := r.URL.Query().Get("network")
 		hash := r.URL.Query().Get("hash")
 		limit := 100
@@ -214,7 +214,7 @@ func InitServer(log *logrus.Logger, db *gorm.DB) {
 	}))
 
 	// Handshakes endpoint
-	http.HandleFunc("/handshakes", enableCORS(func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/api/handshakes", enableCORS(func(w http.ResponseWriter, r *http.Request) {
 		network := r.URL.Query().Get("network")
 		messageType := r.URL.Query().Get("type")
 		peerID := r.URL.Query().Get("peer_id")
@@ -253,7 +253,7 @@ func InitServer(log *logrus.Logger, db *gorm.DB) {
 	}))
 
 	// Rejected transactions endpoint
-	http.HandleFunc("/rejected-tx", enableCORS(func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/api/rejected-tx", enableCORS(func(w http.ResponseWriter, r *http.Request) {
 		network := r.URL.Query().Get("network")
 		txID := r.URL.Query().Get("tx_id")
 		limit := 100
@@ -288,21 +288,21 @@ func InitServer(log *logrus.Logger, db *gorm.DB) {
 	}))
 
 	// Networks endpoint - returns available networks
-	http.HandleFunc("/networks", enableCORS(func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/api/networks", enableCORS(func(w http.ResponseWriter, r *http.Request) {
 		networks := parser.GetNetworks()
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(networks)
 	}))
 
 	// Message types endpoint - returns available message types
-	http.HandleFunc("/message-types", enableCORS(func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/api/message-types", enableCORS(func(w http.ResponseWriter, r *http.Request) {
 		messageTypes := parser.GetMessageTypes()
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(messageTypes)
 	}))
 
 	// Stats endpoint - returns message statistics
-	http.HandleFunc("/stats", enableCORS(func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/api/stats", enableCORS(func(w http.ResponseWriter, r *http.Request) {
 		type TopicStat struct {
 			Topic       string `json:"topic"`
 			MessageCount int64  `json:"messageCount"`
@@ -725,7 +725,7 @@ func InitServer(log *logrus.Logger, db *gorm.DB) {
 	}))
 
 	// Peers endpoint - returns list of peers with statistics
-	http.HandleFunc("/peers", enableCORS(func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/api/peers", enableCORS(func(w http.ResponseWriter, r *http.Request) {
 		type PeerStat struct {
 			PeerID          string    `json:"peerID"`
 			TotalMessages   int64     `json:"totalMessages"`
@@ -957,9 +957,9 @@ func InitServer(log *logrus.Logger, db *gorm.DB) {
 	}))
 
 	// Peer detail endpoint - returns detailed info for a specific peer
-	http.HandleFunc("/peers/", enableCORS(func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/api/peers/", enableCORS(func(w http.ResponseWriter, r *http.Request) {
 		// Extract peer ID from path
-		peerID := strings.TrimPrefix(r.URL.Path, "/peers/")
+		peerID := strings.TrimPrefix(r.URL.Path, "/api/peers/")
 		if peerID == "" {
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(map[string]string{"error": "Peer ID required"})

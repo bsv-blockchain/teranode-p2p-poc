@@ -33,7 +33,7 @@ export class ApiService {
     params.append('limit', limit.toString());
     params.append('offset', offset.toString());
     
-    const url = `${API_BASE_URL}/messages${params.toString() ? `?${params.toString()}` : ''}`;
+    const url = `${API_BASE_URL}/api/messages${params.toString() ? `?${params.toString()}` : ''}`;
     
     try {
       const response = await fetch(url);
@@ -70,7 +70,7 @@ export class ApiService {
 
   static async getNetworks(): Promise<Network[]> {
     try {
-      const response = await fetch(`${API_BASE_URL}/networks`);
+      const response = await fetch(`${API_BASE_URL}/api/networks`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -85,7 +85,7 @@ export class ApiService {
 
   static async getMessageTypes(): Promise<MessageType[]> {
     try {
-      const response = await fetch(`${API_BASE_URL}/message-types`);
+      const response = await fetch(`${API_BASE_URL}/api/message-types`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -107,7 +107,7 @@ export class ApiService {
     params.append('limit', limit.toString());
     params.append('offset', offset.toString());
     
-    const response = await fetch(`${API_BASE_URL}/blocks?${params.toString()}`);
+    const response = await fetch(`${API_BASE_URL}/api/blocks?${params.toString()}`);
     if (!response.ok) {
       const errorText = await response.text();
       throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
@@ -131,7 +131,7 @@ export class ApiService {
     params.append('limit', limit.toString());
     params.append('offset', offset.toString());
     
-    const response = await fetch(`${API_BASE_URL}/mining?${params.toString()}`);
+    const response = await fetch(`${API_BASE_URL}/api/mining?${params.toString()}`);
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -154,7 +154,7 @@ export class ApiService {
     params.append('limit', limit.toString());
     params.append('offset', offset.toString());
     
-    const response = await fetch(`${API_BASE_URL}/subtrees?${params.toString()}`);
+    const response = await fetch(`${API_BASE_URL}/api/subtrees?${params.toString()}`);
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -177,7 +177,7 @@ export class ApiService {
     params.append('limit', limit.toString());
     params.append('offset', offset.toString());
     
-    const response = await fetch(`${API_BASE_URL}/handshakes?${params.toString()}`);
+    const response = await fetch(`${API_BASE_URL}/api/handshakes?${params.toString()}`);
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -200,7 +200,7 @@ export class ApiService {
     params.append('limit', limit.toString());
     params.append('offset', offset.toString());
     
-    const response = await fetch(`${API_BASE_URL}/rejected-tx?${params.toString()}`);
+    const response = await fetch(`${API_BASE_URL}/api/rejected-tx?${params.toString()}`);
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -265,7 +265,7 @@ export class ApiService {
 
   static async getMessageStats(): Promise<MessageStats> {
     try {
-      const response = await fetch(`${API_BASE_URL}/stats`);
+      const response = await fetch(`${API_BASE_URL}/api/stats`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -298,7 +298,7 @@ export class ApiService {
 
   static async getPeers(page: number = 1, limit: number = 20): Promise<import('../types/Message').PeersResponse> {
     const offset = (page - 1) * limit;
-    const response = await fetch(`${API_BASE_URL}/peers?limit=${limit}&offset=${offset}`);
+    const response = await fetch(`${API_BASE_URL}/api/peers?limit=${limit}&offset=${offset}`);
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -306,7 +306,7 @@ export class ApiService {
   }
 
   static async getPeerDetail(peerID: string): Promise<import('../types/Message').PeerDetail> {
-    const response = await fetch(`${API_BASE_URL}/peers/${encodeURIComponent(peerID)}`);
+    const response = await fetch(`${API_BASE_URL}/api/peers/${encodeURIComponent(peerID)}`);
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
