@@ -1,6 +1,6 @@
 import React from 'react';
 import { Block, MiningOn, Subtree, Handshake, RejectedTx } from '../types/Message';
-import { PeerNameDisplay } from './PeerNameDisplay';
+import { ClickablePeerNameDisplay } from './ClickablePeerNameDisplay';
 
 interface MessageCardBaseProps {
   className?: string;
@@ -96,20 +96,22 @@ const MessageCardBase: React.FC<MessageCardBaseProps> = ({
                 <div>
                   <span className="text-xs sm:text-sm font-medium text-gray-500">Sent from Peer</span>
                   <div className="text-xs sm:text-sm text-gray-700">
-                    <PeerNameDisplay 
+                    <ClickablePeerNameDisplay 
                       peerID={sentFromPeer} 
                       showBoth={true}
-                      className="text-gray-700"
+                      className="text-gray-700 hover:text-gray-900"
+                      linkClassName="group"
                     />
                   </div>
                 </div>
                 <div>
                   <span className="text-xs sm:text-sm font-medium text-gray-500">Message Peer ID</span>
                   <div className="text-xs sm:text-sm text-gray-900">
-                    <PeerNameDisplay 
+                    <ClickablePeerNameDisplay 
                       peerID={peerID} 
                       showBoth={true}
-                      className="text-gray-900"
+                      className="text-gray-900 hover:text-indigo-600"
+                      linkClassName="group"
                     />
                   </div>
                 </div>
@@ -119,10 +121,11 @@ const MessageCardBase: React.FC<MessageCardBaseProps> = ({
               <div>
                 <span className="text-xs sm:text-sm font-medium text-gray-500">Peer ID</span>
                 <div className="text-xs sm:text-sm text-gray-900">
-                  <PeerNameDisplay 
+                  <ClickablePeerNameDisplay 
                     peerID={peerID || sentFromPeer || ''} 
                     showBoth={true}
-                    className="text-gray-900"
+                    className="text-gray-900 hover:text-indigo-600"
+                    linkClassName="group"
                   />
                 </div>
               </div>
