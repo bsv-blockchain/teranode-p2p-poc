@@ -65,6 +65,10 @@ func InitServer(log *logrus.Logger, db *gorm.DB) {
 	http.HandleFunc("/messages", enableCORS(func(w http.ResponseWriter, r *http.Request) {
 		topic := r.URL.Query().Get("topic")
 		peer := r.URL.Query().Get("peer")
+		// Also support peer_id parameter for consistency with other endpoints
+		if peer == "" {
+			peer = r.URL.Query().Get("peer_id")
+		}
 		limit := 100
 		offset := 0
 
@@ -84,7 +88,7 @@ func InitServer(log *logrus.Logger, db *gorm.DB) {
 		}
 
 		var messages []model.Message
-		query := db.Order("received_at asc").Limit(limit).Offset(offset)
+		query := db.Order("received_at desc").Limit(limit).Offset(offset)
 		if topic != "" {
 			query = query.Where("topic = ?", topic)
 		}
@@ -437,7 +441,7 @@ func InitServer(log *logrus.Logger, db *gorm.DB) {
 			Find(&miningCounts).Error; err == nil {
 			for _, nc := range miningCounts {
 				if nc.Network != "" {
-					topic := "bitcoin/" + nc.Network + "-mining_on"
+					topic := "bitcoin/" + nc.Network + "-miningon"
 					found := false
 					for i, ts := range stats.TopicStats {
 						if ts.Topic == topic {
@@ -451,7 +455,7 @@ func InitServer(log *logrus.Logger, db *gorm.DB) {
 							Topic:        topic,
 							MessageCount: nc.Count,
 							Network:      nc.Network,
-							MessageType:  "mining_on",
+							MessageType:  "miningon",
 						})
 					}
 				}
@@ -881,7 +885,7 @@ func InitServer(log *logrus.Logger, db *gorm.DB) {
 
 		// Process all message type tables
 		processPeerTable("blocks", "block")
-		processPeerTable("mining_ons", "mining_on")
+		processPeerTable("mining_ons", "miningon")
 		processPeerTable("subtrees", "subtree")
 		processPeerTable("handshakes", "handshake")
 		processPeerTable("rejected_txes", "rejected_tx")
@@ -1005,7 +1009,7 @@ func InitServer(log *logrus.Logger, db *gorm.DB) {
 		var miningCount int64
 		db.Table("mining_ons").Where("peer_id = ?", peerID).Count(&miningCount)
 		if miningCount > 0 {
-			detail.MessageTypes["mining_on"] = miningCount
+			detail.MessageTypes["miningon"] = miningCount
 			detail.TotalMessages += miningCount
 		}
 

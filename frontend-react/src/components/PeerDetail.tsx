@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { PeerDetail as PeerDetailType } from '../types/Message';
 import { ApiService } from '../services/api';
 import { PeerNameEditor } from './PeerNameEditor';
+import { MessageListSection } from './MessageListSection';
 
 const PeerDetail: React.FC = () => {
   const { peerID } = useParams<{ peerID: string }>();
@@ -418,6 +419,16 @@ const PeerDetail: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* Recent Messages Section */}
+        <MessageListSection 
+          peerID={peerDetail.peerID}
+          availableTopics={[
+            ...Object.keys(peerDetail.messageTypes).flatMap(msgType => 
+              peerDetail.networks.map(network => `bitcoin/${network}-${msgType}`)
+            )
+          ]}
+        />
 
       </div>
     </div>

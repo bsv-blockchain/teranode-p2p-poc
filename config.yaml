@@ -29,7 +29,7 @@ networks:
 #   - "bitcoin/mainnet-bestblock"
 #   - "bitcoin/mainnet-block"
 #   - "bitcoin/mainnet-subtree"
-#   - "bitcoin/mainnet-mining_on"
+#   - "bitcoin/mainnet-miningon"
 #   - "bitcoin/mainnet-handshake"
 #   - "bitcoin/mainnet-rejected_tx"
 #   ... (and so on for all networks)
