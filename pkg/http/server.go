@@ -980,47 +980,18 @@ func InitServer(log *logrus.Logger, db *gorm.DB) {
 			Networks:     []string{},
 			MessageTypes: make(map[string]int64),
 			TimeStats:    make(map[string]interface{}),
+			// Initialize with zero times
+			FirstSeen:    time.Time{},
+			LastSeen:     time.Time{},
 		}
 
-		// Get message counts and time range from messages table
-		var messageStats struct {
-			Count     int64
-			FirstSeen string
-			LastSeen  string
-		}
-		db.Table("messages").
-			Select("COUNT(*) as count, MIN(received_at) as first_seen, MAX(received_at) as last_seen").
-			Where("peer = ?", peerID).
-			Scan(&messageStats)
-		
-		detail.TotalMessages = messageStats.Count
-		
 		// Parse time strings - try multiple formats
 		timeFormats := []string{
+			"2006-01-02 15:04:05.999999999-07:00", // SQLite datetime with timezone
 			"2006-01-02 15:04:05",
 			"2006-01-02T15:04:05Z",
 			"2006-01-02T15:04:05",
 			time.RFC3339,
-		}
-		
-		// Only parse if FirstSeen is not empty
-		if messageStats.FirstSeen != "" {
-			for _, format := range timeFormats {
-				if t, err := time.Parse(format, messageStats.FirstSeen); err == nil {
-					detail.FirstSeen = t
-					break
-				}
-			}
-		}
-		
-		// Only parse if LastSeen is not empty
-		if messageStats.LastSeen != "" {
-			for _, format := range timeFormats {
-				if t, err := time.Parse(format, messageStats.LastSeen); err == nil {
-					detail.LastSeen = t
-					break
-				}
-			}
 		}
 
 		// Get counts from specialized tables

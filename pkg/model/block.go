@@ -12,5 +12,5 @@ type Block struct {
 	Height     uint32    `gorm:"index;not null"`
 	DataHubURL string    `gorm:"type:text"`
 	PeerID     string    `gorm:"index;not null"`
-	ReceivedAt time.Time `gorm:"autoCreateTime"`
+	ReceivedAt time.Time
 }

@@ -9,5 +9,5 @@ type BestBlockRequest struct {
 	ID         uint      `gorm:"primaryKey"`
 	Network    string    `gorm:"index;not null"`
 	PeerID     string    `gorm:"index;not null"`
-	ReceivedAt time.Time `gorm:"autoCreateTime"`
+	ReceivedAt time.Time
 }
