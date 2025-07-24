@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { MessageStats } from '../types/Message';
 import { ApiService } from '../services/api';
+import { ClickablePeerNameDisplay } from './ClickablePeerNameDisplay';
 
 const Stats: React.FC = () => {
   const [stats, setStats] = useState<MessageStats | null>(null);
@@ -271,8 +272,13 @@ const Stats: React.FC = () => {
                   <span className="text-2xl font-bold text-gray-400">#{index + 1}</span>
                   <span className="text-sm text-gray-500">{formatTime(peer.lastSeen)}</span>
                 </div>
-                <div className="font-mono text-xs text-gray-700 mb-2 break-all">
-                  {peer.peerID}
+                <div className="mb-2">
+                  <ClickablePeerNameDisplay 
+                    peerID={peer.peerID}
+                    showBoth={true}
+                    className="text-xs text-gray-700"
+                    linkClassName="hover:text-gray-900"
+                  />
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">Messages</span>

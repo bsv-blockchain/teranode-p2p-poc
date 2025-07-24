@@ -419,67 +419,6 @@ const PeerDetail: React.FC = () => {
           </div>
         )}
 
-        {/* Recent Mining Activity */}
-        {peerDetail.recentMining.length > 0 && (
-          <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/50 p-6 sm:p-8 mb-8">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 bg-gradient-to-br from-yellow-500 to-amber-600 rounded-xl flex items-center justify-center">
-                <span className="text-2xl">⛏️</span>
-              </div>
-              <h2 className="text-xl font-semibold text-gray-900">Recent Mining Activity</h2>
-            </div>
-            
-            <div className="overflow-hidden rounded-xl border border-gray-200">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Height</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Miner</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Size</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tx Count</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {peerDetail.recentMining.map((mining, idx) => (
-                      <tr key={idx} className="hover:bg-gray-50 transition-colors duration-150">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          #{mining.Height.toLocaleString()}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-600 max-w-xs truncate" title={mining.Miner}>
-                          {mining.Miner || 'Unknown'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <span className="text-sm font-medium text-gray-900">
-                              {(mining.SizeInBytes / 1024 / 1024).toFixed(2)} MB
-                            </span>
-                            <div className="ml-2 w-16 bg-gray-200 rounded-full h-2">
-                              <div 
-                                className="bg-gradient-to-r from-yellow-400 to-amber-500 h-2 rounded-full"
-                                style={{ width: `${Math.min((mining.SizeInBytes / (4 * 1024 * 1024)) * 100, 100)}%` }}
-                              ></div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="text-sm font-medium text-gray-900">
-                            {mining.TxCount.toLocaleString()}
-                          </span>
-                          <span className="text-xs text-gray-500 ml-1">txs</span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {formatTime(mining.ReceivedAt)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
