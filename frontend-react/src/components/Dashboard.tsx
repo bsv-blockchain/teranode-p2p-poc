@@ -302,27 +302,108 @@ export const Dashboard: React.FC = () => {
         </div>
 
 
-        {/* Secondary Filters */}
-        <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/50 p-6 sm:p-8 mb-8">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 bg-gradient-to-br from-[#FF2DAF] to-[#FF2DAF]/80 rounded-xl flex items-center justify-center">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-              </svg>
+        {/* Secondary Filters - Modern Design */}
+        <div className="relative mb-8">
+          {/* Gradient Background Effect */}
+          <div className="absolute inset-0 bg-gradient-to-r from-[#1B1EA9]/5 via-[#FF2DAF]/5 to-[#1B1EA9]/5 rounded-3xl blur-xl"></div>
+          
+          <div className="relative bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/50 overflow-hidden">
+            {/* Header with Gradient Border */}
+            <div className="bg-gradient-to-r from-[#1B1EA9] to-[#FF2DAF] p-[2px]">
+              <div className="bg-white/95 backdrop-blur px-8 py-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="relative">
+                      <div className="absolute inset-0 bg-gradient-to-br from-[#FF2DAF] to-[#1B1EA9] rounded-2xl blur-lg opacity-60"></div>
+                      <div className="relative w-12 h-12 bg-gradient-to-br from-[#FF2DAF] to-[#1B1EA9] rounded-2xl flex items-center justify-center shadow-lg">
+                        <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                        </svg>
+                      </div>
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-bold bg-gradient-to-r from-[#1B1EA9] to-[#FF2DAF] bg-clip-text text-transparent">
+                        Advanced Filters
+                      </h2>
+                      <p className="text-sm text-gray-600 mt-1">Refine your search with precision</p>
+                    </div>
+                  </div>
+                  
+                  {/* Active Filter Count */}
+                  {(selectedMessageType !== 'all' || peerFilter) && (
+                    <div className="flex items-center gap-2 bg-gradient-to-r from-[#1B1EA9]/10 to-[#FF2DAF]/10 px-4 py-2 rounded-full">
+                      <span className="text-sm font-medium text-gray-700">
+                        {[selectedMessageType !== 'all' ? 1 : 0, peerFilter ? 1 : 0].reduce((a, b) => a + b, 0)} active
+                      </span>
+                      <button
+                        onClick={() => {
+                          setSelectedMessageType('all');
+                          setPeerFilter('');
+                        }}
+                        className="ml-1 p-1 hover:bg-white/50 rounded-full transition-colors"
+                      >
+                        <svg className="w-3 h-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
-            <h2 className="text-xl font-semibold text-gray-900">Filter Messages</h2>
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <MessageTypeFilter
-              selectedType={selectedMessageType}
-              onTypeChange={setSelectedMessageType}
-              messageTypes={messageTypes}
-            />
-            <PeerFilter
-              value={peerFilter}
-              onChange={setPeerFilter}
-              recentPeers={recentPeers}
-            />
+            
+            {/* Filter Content */}
+            <div className="p-8">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Message Type Filter with Enhanced Styling */}
+                <div className="group">
+                  <div className="relative">
+                    <div className="absolute -inset-0.5 bg-gradient-to-r from-[#1B1EA9] to-[#FF2DAF] rounded-2xl blur opacity-0 group-hover:opacity-30 transition duration-500"></div>
+                    <div className="relative bg-gray-50/50 rounded-2xl p-6 border border-gray-200/50 hover:border-gray-300/50 transition-all duration-300">
+                      <MessageTypeFilter
+                        selectedType={selectedMessageType}
+                        onTypeChange={setSelectedMessageType}
+                        messageTypes={messageTypes}
+                      />
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Peer Filter with Enhanced Styling */}
+                <div className="group">
+                  <div className="relative">
+                    <div className="absolute -inset-0.5 bg-gradient-to-r from-[#FF2DAF] to-[#1B1EA9] rounded-2xl blur opacity-0 group-hover:opacity-30 transition duration-500"></div>
+                    <div className="relative bg-gray-50/50 rounded-2xl p-6 border border-gray-200/50 hover:border-gray-300/50 transition-all duration-300">
+                      <PeerFilter
+                        value={peerFilter}
+                        onChange={setPeerFilter}
+                        recentPeers={recentPeers}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Filter Summary Bar */}
+              <div className="mt-6 flex items-center justify-between px-4 py-3 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl">
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-sm text-gray-600">
+                    Showing {selectedMessageType === 'all' ? 'all message types' : selectedMessageType.replace('_', ' ')} 
+                    {peerFilter && ` from peer ${peerFilter.slice(0, 8)}...`}
+                  </span>
+                </div>
+                {loading && (
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-[#1B1EA9] rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                    <div className="w-2 h-2 bg-[#FF2DAF] rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                    <div className="w-2 h-2 bg-[#1B1EA9] rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
