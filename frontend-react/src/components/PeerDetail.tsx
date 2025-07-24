@@ -51,7 +51,18 @@ const PeerDetail: React.FC = () => {
   };
 
   const formatFullTime = (timestamp: string) => {
+    // Check for zero time or invalid timestamp
+    if (!timestamp || timestamp === '0001-01-01T00:00:00Z') {
+      return 'Not available';
+    }
+    
     const date = new Date(timestamp);
+    
+    // Check for invalid date
+    if (isNaN(date.getTime())) {
+      return 'Invalid date';
+    }
+    
     return date.toLocaleString('en-US', {
       year: 'numeric',
       month: 'short',
@@ -63,9 +74,25 @@ const PeerDetail: React.FC = () => {
   };
 
   const getTimeDuration = (start: string, end: string) => {
+    // Check for zero time or invalid dates
+    if (!start || !end || start === '0001-01-01T00:00:00Z' || end === '0001-01-01T00:00:00Z') {
+      return 'N/A';
+    }
+    
     const startDate = new Date(start);
     const endDate = new Date(end);
+    
+    // Check for invalid dates
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      return 'N/A';
+    }
+    
     const diff = endDate.getTime() - startDate.getTime();
+    
+    // If diff is negative or zero, return N/A
+    if (diff <= 0) {
+      return 'N/A';
+    }
     
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
     const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));

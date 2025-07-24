@@ -115,14 +115,18 @@ func main() {
 				return
 			}
 
+			// Capture timestamp once for consistent storage
+			receivedAt := time.Now()
+			
 			// Store parsed message in appropriate table
 			var storeErr error
 			switch parsedMsg.Type {
 			case parser.TypeBestBlock:
 				bbMsg := parsedMsg.Data.(p2p.BestBlockRequestMessage)
 				storeErr = db.Create(&model.BestBlockRequest{
-					Network: parsedMsg.Network,
-					PeerID:  bbMsg.PeerID,
+					Network:    parsedMsg.Network,
+					PeerID:     bbMsg.PeerID,
+					ReceivedAt: receivedAt,
 				}).Error
 
 			case parser.TypeBlock:
@@ -133,6 +137,7 @@ func main() {
 					Height:     blockMsg.Height,
 					DataHubURL: blockMsg.DataHubURL,
 					PeerID:     blockMsg.PeerID,
+					ReceivedAt: receivedAt,
 				}).Error
 
 			case parser.TypeMiningOn:
@@ -147,6 +152,7 @@ func main() {
 					Miner:        miningMsg.Miner,
 					SizeInBytes:  miningMsg.SizeInBytes,
 					TxCount:      miningMsg.TxCount,
+					ReceivedAt:   receivedAt,
 				}).Error
 
 			case parser.TypeSubtree:
@@ -156,6 +162,7 @@ func main() {
 					Hash:       subtreeMsg.Hash,
 					DataHubURL: subtreeMsg.DataHubURL,
 					PeerID:     subtreeMsg.PeerID,
+					ReceivedAt: receivedAt,
 				}).Error
 
 			case parser.TypeHandshake:
@@ -169,15 +176,17 @@ func main() {
 					DataHubURL: handshakeMsg.DataHubURL,
 					UserAgent:  handshakeMsg.UserAgent,
 					Services:   handshakeMsg.Services,
+					ReceivedAt: receivedAt,
 				}).Error
 
 			case parser.TypeRejectedTx:
 				rejectedMsg := parsedMsg.Data.(p2p.RejectedTxMessage)
 				storeErr = db.Create(&model.RejectedTx{
-					Network: parsedMsg.Network,
-					TxID:    rejectedMsg.TxID,
-					Reason:  rejectedMsg.Reason,
-					PeerID:  rejectedMsg.PeerID,
+					Network:    parsedMsg.Network,
+					TxID:       rejectedMsg.TxID,
+					Reason:     rejectedMsg.Reason,
+					PeerID:     rejectedMsg.PeerID,
+					ReceivedAt: receivedAt,
 				}).Error
 			}
 
@@ -190,7 +199,7 @@ func main() {
 					Topic:      topicCopy,
 					Data:       string(data),
 					Peer:       peer,
-					ReceivedAt: time.Now(),
+					ReceivedAt: receivedAt,
 				}
 				db.Create(&msg) // Ignore error for generic storage
 				websocket.BroadcastMessage(msg)

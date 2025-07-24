@@ -1003,17 +1003,23 @@ func InitServer(log *logrus.Logger, db *gorm.DB) {
 			time.RFC3339,
 		}
 		
-		for _, format := range timeFormats {
-			if t, err := time.Parse(format, messageStats.FirstSeen); err == nil {
-				detail.FirstSeen = t
-				break
+		// Only parse if FirstSeen is not empty
+		if messageStats.FirstSeen != "" {
+			for _, format := range timeFormats {
+				if t, err := time.Parse(format, messageStats.FirstSeen); err == nil {
+					detail.FirstSeen = t
+					break
+				}
 			}
 		}
 		
-		for _, format := range timeFormats {
-			if t, err := time.Parse(format, messageStats.LastSeen); err == nil {
-				detail.LastSeen = t
-				break
+		// Only parse if LastSeen is not empty
+		if messageStats.LastSeen != "" {
+			for _, format := range timeFormats {
+				if t, err := time.Parse(format, messageStats.LastSeen); err == nil {
+					detail.LastSeen = t
+					break
+				}
 			}
 		}
 
@@ -1144,33 +1150,54 @@ func InitServer(log *logrus.Logger, db *gorm.DB) {
 				FirstSeen string
 				LastSeen  string
 			}
+			var count int64
+			db.Table(tableName).Where("peer_id = ?", peerID).Count(&count)
+			if count > 0 {
+				log.Printf("[PeerDetail] Table %s has %d records for peer %s", tableName, count, peerID)
+			}
+			
 			if err := db.Table(tableName).
 				Select("MIN(received_at) as first_seen, MAX(received_at) as last_seen").
 				Where("peer_id = ?", peerID).
 				Scan(&times).Error; err == nil {
 				
+				if times.FirstSeen != "" || times.LastSeen != "" {
+					log.Printf("[PeerDetail] Table %s times for peer %s: first=%s, last=%s", 
+						tableName, peerID, times.FirstSeen, times.LastSeen)
+				}
+				
 				// Parse time strings
 				var firstSeen, lastSeen time.Time
-				for _, format := range timeFormats {
-					if t, err := time.Parse(format, times.FirstSeen); err == nil {
-						firstSeen = t
-						break
+				if times.FirstSeen != "" {
+					for _, format := range timeFormats {
+						if t, err := time.Parse(format, times.FirstSeen); err == nil {
+							firstSeen = t
+							break
+						}
 					}
 				}
 				
-				for _, format := range timeFormats {
-					if t, err := time.Parse(format, times.LastSeen); err == nil {
-						lastSeen = t
-						break
+				if times.LastSeen != "" {
+					for _, format := range timeFormats {
+						if t, err := time.Parse(format, times.LastSeen); err == nil {
+							lastSeen = t
+							break
+						}
 					}
 				}
 				
 				if !firstSeen.IsZero() && (detail.FirstSeen.IsZero() || firstSeen.Before(detail.FirstSeen)) {
+					log.Printf("[PeerDetail] Updating FirstSeen from %s: %v -> %v", 
+						tableName, detail.FirstSeen, firstSeen)
 					detail.FirstSeen = firstSeen
 				}
 				if !lastSeen.IsZero() && lastSeen.After(detail.LastSeen) {
+					log.Printf("[PeerDetail] Updating LastSeen from %s: %v -> %v", 
+						tableName, detail.LastSeen, lastSeen)
 					detail.LastSeen = lastSeen
 				}
+			} else if err != nil {
+				log.Printf("[PeerDetail] Error querying %s for peer %s: %v", tableName, peerID, err)
 			}
 		}
 
