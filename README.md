@@ -1,11 +1,11 @@
 # Teranode P2P POC
 
-Teranode P2P is a peer-to-peer networking component for the Bitcoin SV ecosystem. It now includes message persistence, a realtime websocket API, and a lightweight frontend for viewing/searching messages.
+Teranode P2P is a peer-to-peer networking component for the BSV Blockchain ecosystem. It now includes message persistence, a realtime websocket API, and a lightweight frontend for viewing/searching messages.
 
 ## Features
 
 - **Decentralized Networking:** Connects to other nodes using a secure, private DHT (Distributed Hash Table).
-- **Configurable Topics:** Subscribes to and handles key Bitcoin SV network topics (blocks, transactions, mining status, etc.).
+- **Configurable Topics:** Subscribes to and handles key BSV Blockchain network topics (blocks, transactions, mining status, etc.).
 - **Message Persistence:** All received messages are stored in a SQLite database (configurable path).
 - **Realtime Websocket:** All new messages are broadcast to connected websocket clients.
 - **Searchable API:** Query messages by topic or peer via a REST API.
@@ -145,7 +145,7 @@ npx wscat -c ws://localhost:8080/ws
 - `bitcoin/mainnet-rejected_tx`
 
 ## License
-This project is part of the BSV Blockchain initiative. See [Bitcoin SV License](https://bitcoinsv.io/terms-of-use/) for details.
+This project is part of the BSV Blockchain initiative. See [BSV Blockchain License](https://bitcoinsv.io/terms-of-use/) for details.
 
 ## Credits
 - BSV Blockchain community

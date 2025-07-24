@@ -188,11 +188,11 @@ export const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-[#F9F9F9]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Hero Section */}
         <div className="mb-10">
-          <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-3xl shadow-2xl p-8 sm:p-12 text-white relative overflow-hidden">
+          <div className="bg-gradient-to-r from-[#1B1EA9] via-[#1B1EA9] to-[#FF2DAF] rounded-3xl shadow-2xl p-8 sm:p-12 text-white relative overflow-hidden">
             {/* Background Pattern */}
             <div className="absolute inset-0 opacity-10">
               <div className="absolute -top-4 -right-4 w-72 h-72 bg-white rounded-full blur-3xl"></div>
@@ -201,50 +201,81 @@ export const Dashboard: React.FC = () => {
             
             {/* Content */}
             <div className="relative z-10">
-              <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
-                <div className="flex-1">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
+                <div className="flex-1 max-w-3xl">
                   <div className="flex items-center gap-4 mb-6">
-                    <div className="w-16 h-16 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center">
-                      <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                      </svg>
+                    <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center p-3">
+                      <img src="https://bsvassociation.org/wp-content/uploads/2025/05/logo-footer.svg" alt="BSV Logo" className="w-full h-full" />
                     </div>
                     <div>
                       <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-2">Teranode P2P Monitor</h1>
-                      <p className="text-lg sm:text-xl text-blue-100">Real-time Bitcoin SV Network Intelligence</p>
+                      <p className="text-lg sm:text-xl text-white/90">Real-time BSV Blockchain Network Intelligence</p>
                     </div>
                   </div>
                   
-                  <p className="text-base sm:text-lg text-blue-50 leading-relaxed mb-6 max-w-3xl">
-                    Welcome to the Teranode P2P Monitor, your window into the Bitcoin SV network's peer-to-peer communication layer. 
+                  <p className="text-base sm:text-lg text-white/80 leading-relaxed mb-6 max-w-3xl">
+                    Welcome to the Teranode P2P Monitor, your window into the BSV Blockchain network's peer-to-peer communication layer. 
                     This platform provides real-time visibility into network messages, peer interactions, and blockchain activity across 
                     multiple BSV networks. Monitor block propagation, transaction flows, and network health metrics as they happen, 
                     giving developers and operators unprecedented insight into the Teranode infrastructure.
                   </p>
                   
-                  <div className="flex flex-wrap gap-4">
-                    <div className="flex items-center gap-2 bg-white/20 backdrop-blur px-4 py-2 rounded-full">
-                      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                      <span className="text-sm font-medium">Live Monitoring</span>
+                  <div className="inline-flex items-center gap-3 bg-white/10 backdrop-blur-md px-5 py-3 rounded-full border border-white/20 shadow-lg">
+                    <div className="relative flex items-center justify-center">
+                      <div className="absolute w-3 h-3 bg-green-400 rounded-full animate-ping"></div>
+                      <div className="relative w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
                     </div>
-                    <div className="flex items-center gap-2 bg-white/20 backdrop-blur px-4 py-2 rounded-full">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                      </svg>
-                      <span className="text-sm font-medium">{stats.totalMessages.toLocaleString()} Messages</span>
-                    </div>
-                    <div className="flex items-center gap-2 bg-white/20 backdrop-blur px-4 py-2 rounded-full">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                      </svg>
-                      <span className="text-sm font-medium">{stats.uniquePeers} Active Peers</span>
+                    <span className="text-sm font-semibold text-white">Live Monitoring</span>
+                    <div className="flex gap-1">
+                      <div className="w-1 h-4 bg-green-400 rounded-full animate-pulse" style={{ animationDelay: '0ms' }}></div>
+                      <div className="w-1 h-4 bg-green-400 rounded-full animate-pulse" style={{ animationDelay: '150ms' }}></div>
+                      <div className="w-1 h-4 bg-green-400 rounded-full animate-pulse" style={{ animationDelay: '300ms' }}></div>
                     </div>
                   </div>
                 </div>
                 
-                {/* WebSocket Status */}
-                <div className="lg:absolute lg:top-8 lg:right-8">
-                  <WebSocketStatusComponent status={wsStatus} onReconnect={reconnect} />
+                {/* Right Side - Network Stats */}
+                <div className="lg:flex-shrink-0 lg:w-96">
+                  <div className="bg-white/10 backdrop-blur-md rounded-3xl p-6 border border-white/20">
+                    <h3 className="text-lg font-semibold text-white/90 mb-4">Network Overview</h3>
+                    
+                    {/* Stats Grid */}
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div className="bg-white/10 rounded-xl p-4">
+                        <div className="text-3xl font-bold text-white">{stats.totalMessages.toLocaleString()}</div>
+                        <div className="text-sm text-white/70">Total Messages</div>
+                      </div>
+                      <div className="bg-white/10 rounded-xl p-4">
+                        <div className="text-3xl font-bold text-white">{stats.uniquePeers}</div>
+                        <div className="text-sm text-white/70">Active Peers</div>
+                      </div>
+                    </div>
+                    
+                    {/* Network Activity Visualization */}
+                    <div className="bg-white/10 rounded-xl p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm text-white/70">Network Activity</span>
+                        <span className="text-xs text-green-400">● Live</span>
+                      </div>
+                      <div className="flex items-end gap-1 h-12">
+                        {[40, 70, 55, 85, 60, 90, 45, 75, 65, 50, 80, 55].map((height, i) => (
+                          <div
+                            key={i}
+                            className="flex-1 bg-gradient-to-t from-[#FF2DAF] to-[#1B1EA9] rounded-t animate-pulse opacity-80"
+                            style={{
+                              height: `${height}%`,
+                              animationDelay: `${i * 100}ms`
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {/* WebSocket Status */}
+                    <div className="mt-4 pt-4 border-t border-white/10">
+                      <WebSocketStatusComponent status={wsStatus} onReconnect={reconnect} />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -255,7 +286,7 @@ export const Dashboard: React.FC = () => {
         <div className="mb-8">
           <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/50 p-6 sm:p-8">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center">
+              <div className="w-10 h-10 bg-gradient-to-br from-[#1B1EA9] to-[#FF2DAF] rounded-xl flex items-center justify-center">
                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
                 </svg>
@@ -274,7 +305,7 @@ export const Dashboard: React.FC = () => {
         {/* Secondary Filters */}
         <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/50 p-6 sm:p-8 mb-8">
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center">
+            <div className="w-10 h-10 bg-gradient-to-br from-[#FF2DAF] to-[#FF2DAF]/80 rounded-xl flex items-center justify-center">
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
               </svg>
@@ -322,7 +353,7 @@ export const Dashboard: React.FC = () => {
               <div>
                 <h2 className="text-2xl font-bold text-gray-900 mb-2">
                   {selectedNetwork !== 'all' && (
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gradient-to-r from-blue-500 to-indigo-600 text-white mr-2">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gradient-to-r from-[#1B1EA9] to-[#FF2DAF] text-white mr-2">
                       {selectedNetwork.toUpperCase()}
                     </span>
                   )}
@@ -341,9 +372,9 @@ export const Dashboard: React.FC = () => {
               </div>
               
               {loading && (
-                <div className="flex items-center gap-3 bg-blue-50 px-4 py-2 rounded-full">
-                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
-                  <span className="text-sm font-medium text-blue-700">Updating...</span>
+                <div className="flex items-center gap-3 bg-[#1B1EA9]/10 px-4 py-2 rounded-full">
+                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-[#1B1EA9] border-t-transparent"></div>
+                  <span className="text-sm font-medium text-[#1B1EA9]">Updating...</span>
                 </div>
               )}
             </div>
@@ -360,7 +391,7 @@ export const Dashboard: React.FC = () => {
             </div>
           ) : loading ? (
             <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/50 p-16 text-center">
-              <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full mb-6">
+              <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-[#1B1EA9] to-[#FF2DAF] rounded-full mb-6">
                 <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
               </div>
               <p className="text-lg font-medium text-gray-700">Loading messages...</p>
@@ -386,7 +417,7 @@ export const Dashboard: React.FC = () => {
                   setSelectedMessageType('all');
                   setPeerFilter('');
                 }}
-                className="mt-6 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-medium hover:from-blue-600 hover:to-indigo-700 transition-all transform hover:scale-105"
+                className="mt-6 px-6 py-3 bg-gradient-to-r from-[#1B1EA9] to-[#FF2DAF] text-white rounded-xl font-medium hover:from-[#1515A0] hover:to-[#FF1FA0] transition-all transform hover:scale-105"
               >
                 Clear All Filters
               </button>

@@ -74,7 +74,7 @@ const Stats: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4">
+      <div className="min-h-screen bg-[#F9F9F9] p-4">
         <div className="max-w-7xl mx-auto">
           <div className="animate-pulse">
             <div className="h-12 bg-gray-200 rounded-lg w-48 mb-8"></div>
@@ -94,7 +94,7 @@ const Stats: React.FC = () => {
 
   if (error || !stats) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4">
+      <div className="min-h-screen bg-[#F9F9F9] p-4">
         <div className="max-w-7xl mx-auto">
           <div className="bg-red-50 border border-red-200 rounded-xl p-6">
             <p className="text-red-600 text-center">{error || 'No statistics available'}</p>
@@ -124,57 +124,57 @@ const Stats: React.FC = () => {
     .sort(([, a], [, b]) => b - a);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4">
+    <div className="min-h-screen bg-[#F9F9F9] p-4">
       <div className="max-w-7xl mx-auto">
         {/* Page Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Network Statistics</h1>
-          <p className="text-gray-600">Real-time insights into the Bitcoin SV P2P network</p>
+          <h1 className="text-4xl font-bold text-[#2D2D31] mb-2">Network Statistics</h1>
+          <p className="text-gray-600">Real-time insights into the BSV Blockchain P2P network</p>
         </div>
 
         {/* Key Metrics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-6 text-white shadow-xl transform hover:scale-105 transition-transform">
+          <div className="bg-gradient-to-br from-[#1B1EA9] to-[#1B1EA9]/90 rounded-2xl p-6 text-white shadow-xl transform hover:scale-105 transition-transform">
             <div className="flex items-center justify-between mb-4">
-              <span className="text-blue-100">Total Messages</span>
+              <span className="text-white/90">Total Messages</span>
               <span className="text-3xl">📨</span>
             </div>
             <div className="text-3xl font-bold">{stats.totalMessages.toLocaleString()}</div>
-            <div className="text-sm text-blue-100 mt-2">All time</div>
+            <div className="text-sm text-white/80 mt-2">All time</div>
           </div>
 
-          <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-2xl p-6 text-white shadow-xl transform hover:scale-105 transition-transform">
+          <div className="bg-gradient-to-br from-[#FF2DAF] to-[#FF2DAF]/90 rounded-2xl p-6 text-white shadow-xl transform hover:scale-105 transition-transform">
             <div className="flex items-center justify-between mb-4">
-              <span className="text-green-100">Active Peers</span>
+              <span className="text-white/90">Active Peers</span>
               <span className="text-3xl">🌐</span>
             </div>
             <div className="text-3xl font-bold">{stats.uniquePeers.toLocaleString()}</div>
-            <div className="text-sm text-green-100 mt-2">{avgMessagesPerPeer} avg msgs/peer</div>
+            <div className="text-sm text-white/80 mt-2">{avgMessagesPerPeer} avg msgs/peer</div>
           </div>
 
-          <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl p-6 text-white shadow-xl transform hover:scale-105 transition-transform">
+          <div className="bg-gradient-to-br from-[#1B1EA9]/80 to-[#FF2DAF]/80 rounded-2xl p-6 text-white shadow-xl transform hover:scale-105 transition-transform">
             <div className="flex items-center justify-between mb-4">
-              <span className="text-purple-100">Messages Today</span>
+              <span className="text-white/90">Messages Today</span>
               <span className="text-3xl">📅</span>
             </div>
             <div className="text-3xl font-bold">{stats.messagesToday.toLocaleString()}</div>
-            <div className="text-sm text-purple-100 mt-2">~{messagesPerHour}/hour</div>
+            <div className="text-sm text-white/80 mt-2">~{messagesPerHour}/hour</div>
           </div>
 
-          <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl p-6 text-white shadow-xl transform hover:scale-105 transition-transform">
+          <div className="bg-gradient-to-br from-[#1B1EA9]/60 to-[#1B1EA9]/90 rounded-2xl p-6 text-white shadow-xl transform hover:scale-105 transition-transform">
             <div className="flex items-center justify-between mb-4">
-              <span className="text-orange-100">Unique Topics</span>
+              <span className="text-white/90">Unique Topics</span>
               <span className="text-3xl">🏷️</span>
             </div>
             <div className="text-3xl font-bold">{stats.uniqueTopics}</div>
-            <div className="text-sm text-orange-100 mt-2">Active channels</div>
+            <div className="text-sm text-white/80 mt-2">Active channels</div>
           </div>
         </div>
 
         {/* Network Activity */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           <div className="bg-white rounded-2xl shadow-lg p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Network Activity</h2>
+            <h2 className="text-2xl font-bold text-[#2D2D31] mb-6">Network Activity</h2>
             <div className="space-y-4">
               {sortedNetworks.map(([network, count]) => {
                 const percentage = (count / stats.totalMessages) * 100;
@@ -198,12 +198,12 @@ const Stats: React.FC = () => {
 
           {/* Latest Block Heights */}
           <div className="bg-white rounded-2xl shadow-lg p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Latest Block Heights</h2>
+            <h2 className="text-2xl font-bold text-[#2D2D31] mb-6">Latest Block Heights</h2>
             <div className="grid grid-cols-2 gap-4">
               {Object.entries(stats.latestBlockHeight).map(([network, height]) => (
                 <div key={network} className="bg-gray-50 rounded-xl p-4">
                   <div className="text-sm font-medium text-gray-600 uppercase mb-1">{network}</div>
-                  <div className="text-2xl font-bold text-gray-900">{height.toLocaleString()}</div>
+                  <div className="text-2xl font-bold text-[#2D2D31]">{height.toLocaleString()}</div>
                 </div>
               ))}
             </div>
@@ -212,7 +212,7 @@ const Stats: React.FC = () => {
 
         {/* Messages by Topic */}
         <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Messages by Topic</h2>
+          <h2 className="text-2xl font-bold text-[#2D2D31] mb-6">Messages by Topic</h2>
           <div className="overflow-x-auto">
             <table className="min-w-full">
               <thead>
@@ -264,7 +264,7 @@ const Stats: React.FC = () => {
 
         {/* Top Active Peers */}
         <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Top Active Peers</h2>
+          <h2 className="text-2xl font-bold text-[#2D2D31] mb-6">Top Active Peers</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {stats.topPeers.map((peer, index) => (
               <div key={index} className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-4 border border-gray-200">

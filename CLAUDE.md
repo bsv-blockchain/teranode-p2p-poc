@@ -97,7 +97,7 @@ go test -cover ./...
 
 ## Architecture Overview
 
-This is a Bitcoin SV P2P networking component that provides:
+This is a BSV Blockchain P2P networking component that provides:
 
 ### Core Components
 - **P2P Node** (`pkg/p2p/`): LibP2P-based peer-to-peer networking with private DHT support
@@ -125,7 +125,7 @@ This is a Bitcoin SV P2P networking component that provides:
 The application requires `config.yaml` with these key sections:
 - `p2p`: Network configuration (bootstrap addresses, shared key, DHT protocol)
 - `database`: SQLite file path
-- `topics`: List of Bitcoin SV topics to subscribe to
+- `topics`: List of BSV Blockchain topics to subscribe to
 
 Environment variables can override config values using `TERANODE_P2P_` prefix with underscores replacing dots.
 

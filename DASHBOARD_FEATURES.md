@@ -1,7 +1,7 @@
 # Dashboard Features Summary
 
 ## New Dashboard Overview
-The frontend has been completely transformed into a modern dashboard interface for exploring Bitcoin SV P2P network messages.
+The frontend has been completely transformed into a modern dashboard interface for exploring BSV Blockchain P2P network messages.
 
 ## 🎯 Key Features
 
@@ -150,4 +150,4 @@ The frontend has been completely transformed into a modern dashboard interface f
 - **Visual Feedback**: New message indicators and loading states
 - **Smooth Interactions**: Transitions and hover effects
 
-This dashboard transforms the P2P message monitoring from a simple message list into a comprehensive network exploration tool, making it easy to understand and analyze Bitcoin SV network activity in real-time.
+This dashboard transforms the P2P message monitoring from a simple message list into a comprehensive network exploration tool, making it easy to understand and analyze BSV Blockchain network activity in real-time.
