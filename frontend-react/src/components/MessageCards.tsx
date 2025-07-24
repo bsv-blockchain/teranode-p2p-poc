@@ -164,20 +164,6 @@ export const BlockCard: React.FC<BlockCardProps> = ({ block, isNew }) => (
         <p className="text-xs sm:text-sm text-gray-900">{block.Height?.toLocaleString() || 'N/A'}</p>
       </div>
     </div>
-    
-    {block.DataHubURL && (
-      <div>
-        <span className="text-xs sm:text-sm font-medium text-gray-500">Data Hub URL</span>
-        <a 
-          href={block.DataHubURL} 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="text-xs sm:text-sm text-indigo-600 hover:text-indigo-500 break-all block"
-        >
-          {block.DataHubURL}
-        </a>
-      </div>
-    )}
   </MessageCardBase>
 );
 
@@ -257,20 +243,6 @@ export const SubtreeCard: React.FC<SubtreeCardProps> = ({ subtree, isNew }) => (
         {subtree.Hash || 'N/A'}
       </p>
     </div>
-    
-    {subtree.DataHubURL && (
-      <div>
-        <span className="text-xs sm:text-sm font-medium text-gray-500">Data Hub URL</span>
-        <a 
-          href={subtree.DataHubURL} 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="text-xs sm:text-sm text-indigo-600 hover:text-indigo-500 break-all block"
-        >
-          {subtree.DataHubURL}
-        </a>
-      </div>
-    )}
   </MessageCardBase>
 );
 
