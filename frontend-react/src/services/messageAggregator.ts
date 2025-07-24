@@ -59,7 +59,7 @@ export class MessageAggregatorService {
         mining.data.forEach((miningMsg: MiningOn) => {
           aggregatedMessages.push({
             data: miningMsg,
-            type: 'mining_on',
+            type: 'miningon',
             sortKey: miningMsg.ReceivedAt
           });
         });
@@ -169,7 +169,7 @@ export class MessageAggregatorService {
   }
 
   private static extractNetworkFromTopic(topic: string): string {
-    // Extract network from topic like "/mainnet-block" or "bitcoin/testnet-mining_on"
+    // Extract network from topic like "/mainnet-block" or "bitcoin/testnet-miningon"
     const match = topic.match(/\/([^-]+)-/);
     return match ? match[1] : '';
   }

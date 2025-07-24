@@ -17,6 +17,17 @@ export class MessageParser {
       // Parse the JSON data
       const parsedData = JSON.parse(message.Data);
       
+      // Debug logging for handshake messages
+      if (messageType === 'handshake') {
+        console.log('[MessageParser] Parsing handshake message:', {
+          topic: message.Topic,
+          messageType,
+          network,
+          parsedData,
+          rawMessage: message
+        });
+      }
+      
       // Create a base object with common fields
       const baseMessage = {
         ID: message.ID,
@@ -32,20 +43,23 @@ export class MessageParser {
         case 'block':
           return this.parseBlockMessage(baseMessage, parsedData);
         
-        case 'mining_on':
+        case 'miningon':
           return this.parseMiningMessage(baseMessage, parsedData);
         
         case 'subtree':
           return this.parseSubtreeMessage(baseMessage, parsedData);
         
         case 'handshake':
-          return this.parseHandshakeMessage(baseMessage, parsedData);
+          const handshakeResult = this.parseHandshakeMessage(baseMessage, parsedData);
+          console.log('[MessageParser] Parsed handshake result:', handshakeResult);
+          return handshakeResult;
         
         case 'rejected_tx':
           return this.parseRejectedTxMessage(baseMessage, parsedData);
         
         default:
           // Return the original message for unknown types
+          console.warn('[MessageParser] Unknown message type:', messageType, 'from topic:', message.Topic);
           return message;
       }
     } catch (error) {
@@ -97,15 +111,26 @@ export class MessageParser {
   }
 
   private static parseHandshakeMessage(base: any, data: any): Handshake {
-    return {
+    console.log('[MessageParser] Handshake raw data fields:', {
+      hasType: 'type' in data,
+      hasType_: 'Type' in data,
+      hasBestHeight: 'best_height' in data,
+      hasBestHeight_: 'BestHeight' in data,
+      dataKeys: Object.keys(data)
+    });
+    
+    const result = {
       ...base,
-      Type: data.type || data.Type || '',
-      BestHeight: data.best_height || data.BestHeight || 0,
-      BestHash: data.best_hash || data.BestHash || '',
-      DataHubURL: data.data_hub_url || data.DataHubURL || '',
-      UserAgent: data.user_agent || data.UserAgent || '',
+      Type: data.type || data.Type || data.handshake_type || 'unknown',
+      BestHeight: data.best_height || data.BestHeight || data.bestHeight || 0,
+      BestHash: data.best_hash || data.BestHash || data.bestHash || '',
+      DataHubURL: data.data_hub_url || data.DataHubURL || data.dataHubURL || '',
+      UserAgent: data.user_agent || data.UserAgent || data.userAgent || 'Unknown',
       Services: data.services || data.Services || 0
     };
+    
+    console.log('[MessageParser] Handshake parsed result:', result);
+    return result;
   }
 
   private static parseRejectedTxMessage(base: any, data: any): RejectedTx {

@@ -150,7 +150,7 @@ export interface RejectedTx {
   ReceivedAt: string;
 }
 
-export type MessageType = 'block' | 'mining_on' | 'subtree' | 'handshake' | 'rejected_tx';
+export type MessageType = 'block' | 'miningon' | 'subtree' | 'handshake' | 'rejected_tx';
 export type Network = 'mainnet' | 'testnet' | 'regtest' | 'stn' | 'teratestnet' | 'tstn';
 
 export interface DashboardFilters {

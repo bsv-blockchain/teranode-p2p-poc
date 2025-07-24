@@ -72,7 +72,7 @@ const Peers: React.FC = () => {
   const getMessageTypeIcon = (type: string) => {
     switch (type) {
       case 'block': return '🔲';
-      case 'mining_on': return '⛏️';
+      case 'miningon': return '⛏️';
       case 'subtree': return '🌳';
       case 'handshake': return '🤝';
       case 'rejected_tx': return '❌';

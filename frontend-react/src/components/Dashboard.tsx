@@ -55,6 +55,16 @@ export const Dashboard: React.FC = () => {
       const messageNetwork = message.Topic.split('/')[1]?.split('-')[0];
       const messageType = message.Topic.split('-')[1];
       
+      // Debug logging for handshake messages
+      if (messageType === 'handshake') {
+        console.log('[Dashboard] WebSocket handshake message:', {
+          topic: message.Topic,
+          extractedType: messageType,
+          selectedMessageType,
+          parsedMessage
+        });
+      }
+      
       const matchesNetwork = selectedNetwork === 'all' || messageNetwork === selectedNetwork;
       const matchesType = selectedMessageType === 'all' || messageType === selectedMessageType;
       
@@ -164,10 +174,21 @@ export const Dashboard: React.FC = () => {
       }
     }
     
+    // Debug logging for handshake rendering
+    if (messageType === 'handshake' || item.Type !== undefined) {
+      console.log('[Dashboard] Rendering handshake card:', {
+        detectedType: messageType,
+        item,
+        hasType: 'Type' in item,
+        hasBestHeight: 'BestHeight' in item,
+        hasUserAgent: 'UserAgent' in item
+      });
+    }
+    
     switch (messageType) {
       case 'block':
         return <BlockCard key={item.ID || index} block={item as Block} isNew={isNew} />;
-      case 'mining_on':
+      case 'miningon':
         return <MiningCard key={item.ID || index} mining={item as MiningOn} isNew={isNew} />;
       case 'subtree':
         return <SubtreeCard key={item.ID || index} subtree={item as Subtree} isNew={isNew} />;

@@ -92,7 +92,7 @@ export class ApiService {
       return await response.json();
     } catch (error) {
       console.error('Error fetching message types:', error);
-      return ['block', 'mining_on', 'subtree', 'handshake', 'rejected_tx'];
+      return ['block', 'miningon', 'subtree', 'handshake', 'rejected_tx'];
     }
   }
 
@@ -232,7 +232,7 @@ export class ApiService {
       switch (filters.messageType) {
         case 'block':
           return await this.getBlocks(filters);
-        case 'mining_on':
+        case 'miningon':
           return await this.getMiningMessages(filters);
         case 'subtree':
           return await this.getSubtrees(filters);

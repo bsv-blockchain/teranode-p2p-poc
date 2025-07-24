@@ -236,45 +236,70 @@ interface HandshakeCardProps {
   isNew?: boolean;
 }
 
-export const HandshakeCard: React.FC<HandshakeCardProps> = ({ handshake, isNew }) => (
-  <MessageCardBase
-    icon="🤝"
-    title={`Handshake - ${(handshake.Type || 'UNKNOWN').toUpperCase()}`}
-    network={handshake.Network}
-    receivedAt={handshake.ReceivedAt}
-    isNew={isNew}
-  >
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-      <div>
-        <span className="text-xs sm:text-sm font-medium text-gray-500">Best Height</span>
-        <p className="text-xs sm:text-sm text-gray-900">{handshake.BestHeight?.toLocaleString() || 'N/A'}</p>
+export const HandshakeCard: React.FC<HandshakeCardProps> = ({ handshake, isNew }) => {
+  // Debug logging for handshake card
+  console.log('[HandshakeCard] Rendering with data:', {
+    handshake,
+    hasAllFields: {
+      Type: handshake.Type,
+      BestHeight: handshake.BestHeight,
+      BestHash: handshake.BestHash,
+      UserAgent: handshake.UserAgent,
+      Services: handshake.Services,
+      Network: handshake.Network,
+      ReceivedAt: handshake.ReceivedAt,
+      PeerID: handshake.PeerID
+    }
+  });
+  
+  return (
+    <MessageCardBase
+      icon="🤝"
+      title={`Handshake - ${(handshake.Type || 'UNKNOWN').toUpperCase()}`}
+      network={handshake.Network}
+      receivedAt={handshake.ReceivedAt}
+      isNew={isNew}
+    >
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+        <div>
+          <span className="text-xs sm:text-sm font-medium text-gray-500">Best Height</span>
+          <p className="text-xs sm:text-sm text-gray-900">
+            {handshake.BestHeight !== undefined && handshake.BestHeight !== null 
+              ? handshake.BestHeight.toLocaleString() 
+              : 'N/A'}
+          </p>
+        </div>
+        <div>
+          <span className="text-xs sm:text-sm font-medium text-gray-500">Services</span>
+          <p className="text-xs sm:text-sm text-gray-900">
+            {handshake.Services !== undefined && handshake.Services !== null 
+              ? '0x' + handshake.Services.toString(16) 
+              : 'N/A'}
+          </p>
+        </div>
       </div>
+      
       <div>
-        <span className="text-xs sm:text-sm font-medium text-gray-500">Services</span>
-        <p className="text-xs sm:text-sm text-gray-900">{handshake.Services ? '0x' + handshake.Services.toString(16) : 'N/A'}</p>
+        <span className="text-sm font-medium text-gray-500">Best Hash</span>
+        <p className="font-mono text-sm text-gray-900 truncate" title={handshake.BestHash || ''}>
+          {handshake.BestHash || 'N/A'}
+        </p>
       </div>
-    </div>
-    
-    <div>
-      <span className="text-sm font-medium text-gray-500">Best Hash</span>
-      <p className="font-mono text-sm text-gray-900 truncate" title={handshake.BestHash || ''}>
-        {handshake.BestHash || 'N/A'}
-      </p>
-    </div>
-    
-    <div>
-      <span className="text-sm font-medium text-gray-500">User Agent</span>
-      <p className="text-sm text-gray-900">{handshake.UserAgent || 'Unknown'}</p>
-    </div>
-    
-    <div>
-      <span className="text-sm font-medium text-gray-500">Peer ID</span>
-      <p className="font-mono text-sm text-gray-900 truncate" title={handshake.PeerID || ''}>
-        {handshake.PeerID || 'N/A'}
-      </p>
-    </div>
-  </MessageCardBase>
-);
+      
+      <div>
+        <span className="text-sm font-medium text-gray-500">User Agent</span>
+        <p className="text-sm text-gray-900">{handshake.UserAgent || 'Unknown'}</p>
+      </div>
+      
+      <div>
+        <span className="text-sm font-medium text-gray-500">Peer ID</span>
+        <p className="font-mono text-sm text-gray-900 truncate" title={handshake.PeerID || ''}>
+          {handshake.PeerID || 'N/A'}
+        </p>
+      </div>
+    </MessageCardBase>
+  );
+};
 
 interface RejectedTxCardProps {
   rejectedTx: RejectedTx;

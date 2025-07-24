@@ -18,7 +18,7 @@ const typeInfo: Record<MessageType | 'all', { label: string; icon: string; descr
     icon: '📦', 
     description: 'New block announcements' 
   },
-  mining_on: { 
+  miningon: { 
     label: 'Mining', 
     icon: '⛏️', 
     description: 'Mining activity notifications' 
