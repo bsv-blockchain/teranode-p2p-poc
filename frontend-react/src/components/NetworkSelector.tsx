@@ -25,7 +25,9 @@ export const NetworkSelector: React.FC<NetworkSelectorProps> = ({
   return (
     <div className="space-y-2">
       <label className="block text-sm font-medium text-gray-700">Network</label>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+        {/* All Networks option is hidden but functionality remains available.
+            To re-enable, uncomment the following button:
         <button
           key="all"
           onClick={() => onNetworkChange('all')}
@@ -39,6 +41,7 @@ export const NetworkSelector: React.FC<NetworkSelectorProps> = ({
         >
           {networkInfo['all'].label}
         </button>
+        */}
         {networks.map(network => (
           <button
             key={network}

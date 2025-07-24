@@ -29,7 +29,7 @@ import {
 } from '../types/Message';
 
 export const Dashboard: React.FC = () => {
-  const [selectedNetwork, setSelectedNetwork] = useState<Network | 'all'>('all');
+  const [selectedNetwork, setSelectedNetwork] = useState<Network | 'all'>('mainnet');
   const [selectedMessageType, setSelectedMessageType] = useState<MessageType | 'all'>('all');
   const [peerFilter, setPeerFilter] = useState<string>('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -413,7 +413,7 @@ export const Dashboard: React.FC = () => {
               </p>
               <button 
                 onClick={() => {
-                  setSelectedNetwork('all');
+                  setSelectedNetwork('mainnet');
                   setSelectedMessageType('all');
                   setPeerFilter('');
                 }}

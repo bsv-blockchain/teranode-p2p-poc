@@ -154,3 +154,6 @@ Environment variables can override config values using `TERANODE_P2P_` prefix wi
 - Uses private DHT with shared key authentication
 - No authentication/authorization implemented for HTTP endpoints
 - Database path should be writable by application user
+
+### Hidden Features
+- **All Networks Selection**: The frontend supports viewing messages from all networks simultaneously, but this option is currently hidden from the UI. The functionality remains fully implemented in the codebase and can be re-enabled by uncommenting the "All Networks" button in `frontend-react/src/components/NetworkSelector.tsx`. The default network selection is set to 'mainnet'.
