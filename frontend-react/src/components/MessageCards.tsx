@@ -1,5 +1,6 @@
 import React from 'react';
 import { Block, MiningOn, Subtree, Handshake, RejectedTx } from '../types/Message';
+import { PeerNameDisplay } from './PeerNameDisplay';
 
 interface MessageCardBaseProps {
   className?: string;
@@ -94,24 +95,36 @@ const MessageCardBase: React.FC<MessageCardBaseProps> = ({
               <>
                 <div>
                   <span className="text-xs sm:text-sm font-medium text-gray-500">Sent from Peer</span>
-                  <p className="font-mono text-xs sm:text-sm text-gray-700 truncate" title={sentFromPeer}>
-                    {sentFromPeer}
-                  </p>
+                  <div className="text-xs sm:text-sm text-gray-700">
+                    <PeerNameDisplay 
+                      peerID={sentFromPeer} 
+                      showBoth={true}
+                      className="text-gray-700"
+                    />
+                  </div>
                 </div>
                 <div>
                   <span className="text-xs sm:text-sm font-medium text-gray-500">Message Peer ID</span>
-                  <p className="font-mono text-xs sm:text-sm text-gray-900 truncate" title={peerID}>
-                    {peerID}
-                  </p>
+                  <div className="text-xs sm:text-sm text-gray-900">
+                    <PeerNameDisplay 
+                      peerID={peerID} 
+                      showBoth={true}
+                      className="text-gray-900"
+                    />
+                  </div>
                 </div>
               </>
             ) : (
               /* Show single peer ID if they're the same or only one exists */
               <div>
                 <span className="text-xs sm:text-sm font-medium text-gray-500">Peer ID</span>
-                <p className="font-mono text-xs sm:text-sm text-gray-900 truncate" title={peerID || sentFromPeer}>
-                  {peerID || sentFromPeer}
-                </p>
+                <div className="text-xs sm:text-sm text-gray-900">
+                  <PeerNameDisplay 
+                    peerID={peerID || sentFromPeer || ''} 
+                    showBoth={true}
+                    className="text-gray-900"
+                  />
+                </div>
               </div>
             )}
           </div>

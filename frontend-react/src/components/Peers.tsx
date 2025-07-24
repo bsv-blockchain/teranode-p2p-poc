@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { PeerStat, PeersResponse } from '../types/Message';
 import { ApiService } from '../services/api';
 import { Link } from 'react-router-dom';
+import { PeerNameEditor } from './PeerNameEditor';
+import { PeerNamesService } from '../services/peerNames';
 
 const Peers: React.FC = () => {
   const [peers, setPeers] = useState<PeerStat[]>([]);
@@ -88,12 +90,16 @@ const Peers: React.FC = () => {
     return { level: 'Low', color: 'from-green-500 to-blue-500' };
   };
 
-  // Filter peers based on search term
-  const filteredPeers = peers.filter(peer => 
-    peer.peerID.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    peer.lastUserAgent?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    peer.networks.some(network => network.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  // Filter peers based on search term (including friendly names)
+  const filteredPeers = peers.filter(peer => {
+    const searchLower = searchTerm.toLowerCase();
+    const friendlyName = PeerNamesService.getName(peer.peerID);
+    
+    return peer.peerID.toLowerCase().includes(searchLower) ||
+           (friendlyName && friendlyName.toLowerCase().includes(searchLower)) ||
+           peer.lastUserAgent?.toLowerCase().includes(searchLower) ||
+           peer.networks.some(network => network.toLowerCase().includes(searchLower));
+  });
 
   const totalPages = Math.ceil(totalPeers / peersPerPage);
 
@@ -200,12 +206,14 @@ const Peers: React.FC = () => {
                   <div className={`h-2 bg-gradient-to-r ${activity.color}`} />
                   
                   <div className="p-6">
-                    {/* Peer ID */}
+                    {/* Peer ID and Name Editor */}
                     <div className="mb-4">
                       <p className="text-xs text-gray-500 mb-1">Peer ID</p>
-                      <p className="font-mono text-sm text-gray-900 break-all">
-                        {peer.peerID}
-                      </p>
+                      <PeerNameEditor 
+                        peerID={peer.peerID} 
+                        className="mb-2"
+                        showFullPeerID={false}
+                      />
                     </div>
 
                     {/* Stats Grid */}
@@ -308,9 +316,11 @@ const Peers: React.FC = () => {
                       <tr key={peer.peerID} className="hover:bg-gray-50 transition-colors">
                         <td className="px-6 py-4">
                           <div>
-                            <p className="font-mono text-sm text-gray-900">
-                              {peer.peerID.substring(0, 20)}...
-                            </p>
+                            <PeerNameEditor 
+                              peerID={peer.peerID} 
+                              className="mb-1"
+                              showFullPeerID={false}
+                            />
                             {peer.lastUserAgent && (
                               <p className="text-xs text-gray-500 truncate max-w-xs" title={peer.lastUserAgent}>
                                 {peer.lastUserAgent}

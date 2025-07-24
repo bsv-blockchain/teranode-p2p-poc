@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { PeerDetail as PeerDetailType } from '../types/Message';
 import { ApiService } from '../services/api';
+import { PeerNameEditor } from './PeerNameEditor';
 
 const PeerDetail: React.FC = () => {
   const { peerID } = useParams<{ peerID: string }>();
@@ -182,11 +183,16 @@ const PeerDetail: React.FC = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
               </div>
-              <div>
+              <div className="flex-1">
                 <h1 className="text-3xl sm:text-4xl font-bold mb-2">Peer Details</h1>
-                <p className="text-blue-100 font-mono text-sm sm:text-base break-all">
-                  {peerDetail.peerID}
-                </p>
+                <div className="bg-white/10 backdrop-blur rounded-xl p-3 mt-2">
+                  <PeerNameEditor 
+                    peerID={peerDetail.peerID} 
+                    className="text-white"
+                    buttonClassName="bg-white/20 hover:bg-white/30 text-white"
+                    showFullPeerID={true}
+                  />
+                </div>
               </div>
             </div>
             

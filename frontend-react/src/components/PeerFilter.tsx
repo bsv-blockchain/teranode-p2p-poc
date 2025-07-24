@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { PeerNamesService } from '../services/peerNames';
+import { PeerNameDisplay } from './PeerNameDisplay';
 
 interface PeerFilterProps {
   value: string;
@@ -18,9 +20,12 @@ export const PeerFilter: React.FC<PeerFilterProps> = ({
 
   useEffect(() => {
     if (value && recentPeers.length > 0) {
-      const filtered = recentPeers.filter(peer => 
-        peer.toLowerCase().includes(value.toLowerCase())
-      );
+      const searchLower = value.toLowerCase();
+      const filtered = recentPeers.filter(peer => {
+        const friendlyName = PeerNamesService.getName(peer);
+        return peer.toLowerCase().includes(searchLower) ||
+               (friendlyName && friendlyName.toLowerCase().includes(searchLower));
+      });
       setFilteredPeers(filtered.slice(0, 5));
     } else {
       setFilteredPeers([]);
@@ -66,7 +71,11 @@ export const PeerFilter: React.FC<PeerFilterProps> = ({
                 onClick={() => handleSelect(peer)}
                 className="w-full px-3 sm:px-4 py-2 text-left text-xs sm:text-sm hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
               >
-                <div className="font-mono text-xs truncate">{peer}</div>
+                <PeerNameDisplay 
+                  peerID={peer} 
+                  showBoth={true}
+                  className="text-gray-700"
+                />
               </button>
             ))}
           </div>
