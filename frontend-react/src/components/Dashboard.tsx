@@ -430,40 +430,53 @@ export const Dashboard: React.FC = () => {
         <div className="space-y-8">
           {/* Results Header */}
           <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/50 px-8 py-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                  {selectedNetwork !== 'all' && (
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gradient-to-r from-[#1B1EA9] to-[#FF2DAF] text-white mr-2">
-                      {selectedNetwork.toUpperCase()}
-                    </span>
-                  )}
-                  {selectedMessageType === 'all' ? 'All Messages' : 
-                   selectedMessageType.split('_').map(word => 
-                     word.charAt(0).toUpperCase() + word.slice(1)
-                   ).join(' ')
-                  }
-                </h2>
-                {pagination && (
-                  <p className="text-gray-600">
-                    {pagination.totalItems > 0 ? (
-                      <>
-                        Showing <span className="font-semibold text-gray-900">
-                          {((pagination.currentPage - 1) * pagination.pageSize + 1).toLocaleString()}-{Math.min(pagination.currentPage * pagination.pageSize, pagination.totalItems).toLocaleString()}
-                        </span> of{' '}
-                        <span className="font-semibold text-gray-900">{pagination.totalItems.toLocaleString()}</span> messages
-                      </>
-                    ) : (
-                      <span className="font-semibold text-gray-900">0 messages</span>
+            <div className="flex flex-col gap-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                    {selectedNetwork !== 'all' && (
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gradient-to-r from-[#1B1EA9] to-[#FF2DAF] text-white mr-2">
+                        {selectedNetwork.toUpperCase()}
+                      </span>
                     )}
-                  </p>
+                    {selectedMessageType === 'all' ? 'All Messages' : 
+                     selectedMessageType.split('_').map(word => 
+                       word.charAt(0).toUpperCase() + word.slice(1)
+                     ).join(' ')
+                    }
+                  </h2>
+                  {pagination && (
+                    <p className="text-gray-600">
+                      {pagination.totalItems > 0 ? (
+                        <>
+                          Showing <span className="font-semibold text-gray-900">
+                            {((pagination.currentPage - 1) * pagination.pageSize + 1).toLocaleString()}-{Math.min(pagination.currentPage * pagination.pageSize, pagination.totalItems).toLocaleString()}
+                          </span> of{' '}
+                          <span className="font-semibold text-gray-900">{pagination.totalItems.toLocaleString()}</span> messages
+                        </>
+                      ) : (
+                        <span className="font-semibold text-gray-900">0 messages</span>
+                      )}
+                    </p>
+                  )}
+                </div>
+                
+                {loading && (
+                  <div className="flex items-center gap-3 bg-[#1B1EA9]/10 px-4 py-2 rounded-full">
+                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-[#1B1EA9] border-t-transparent"></div>
+                    <span className="text-sm font-medium text-[#1B1EA9]">Updating...</span>
+                  </div>
                 )}
               </div>
               
-              {loading && (
-                <div className="flex items-center gap-3 bg-[#1B1EA9]/10 px-4 py-2 rounded-full">
-                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-[#1B1EA9] border-t-transparent"></div>
-                  <span className="text-sm font-medium text-[#1B1EA9]">Updating...</span>
+              {/* Top Pagination */}
+              {pagination && data.length > 0 && (
+                <div className="flex justify-center pt-2 border-t border-gray-200/50">
+                  <PaginationComponent
+                    pagination={pagination}
+                    onPageChange={setCurrentPage}
+                    className="[&>div:first-child]:hidden"
+                  />
                 </div>
               )}
             </div>
@@ -513,7 +526,7 @@ export const Dashboard: React.FC = () => {
             </div>
           )}
 
-          {/* Pagination */}
+          {/* Bottom Pagination */}
           {pagination && data.length > 0 && (
             <div className="flex justify-center">
               <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/50 p-2">
