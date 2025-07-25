@@ -18,11 +18,12 @@ const typeInfo: Record<MessageType | 'all', { label: string; icon: string; descr
     icon: '📦', 
     description: 'New block announcements' 
   },
-  miningon: { 
-    label: 'Mining', 
-    icon: '⛏️', 
-    description: 'Mining activity notifications' 
-  },
+  // Temporarily hiding miningon message type
+  // miningon: { 
+  //   label: 'Mining', 
+  //   icon: '⛏️', 
+  //   description: 'Mining activity notifications' 
+  // },
   subtree: { 
     label: 'Subtrees', 
     icon: '🌳', 

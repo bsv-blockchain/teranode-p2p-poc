@@ -160,7 +160,9 @@ export interface RejectedTx {
   Topic?: string;  // For WebSocket messages
 }
 
-export type MessageType = 'block' | 'miningon' | 'subtree' | 'handshake' | 'rejected_tx';
+// Temporarily removing 'miningon' from visible message types
+// export type MessageType = 'block' | 'miningon' | 'subtree' | 'handshake' | 'rejected_tx';
+export type MessageType = 'block' | 'subtree' | 'handshake' | 'rejected_tx';
 export type Network = 'mainnet' | 'testnet' | 'regtest' | 'stn' | 'teratestnet' | 'tstn';
 
 export interface DashboardFilters {

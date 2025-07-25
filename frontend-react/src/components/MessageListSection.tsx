@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Message, ApiResponse, Block, MiningOn, Subtree, Handshake, RejectedTx } from '../types/Message';
 import { ApiService } from '../services/api';
 import { MessageParser } from '../utils/messageParser';
-import { BlockCard, MiningCard, SubtreeCard, HandshakeCard, RejectedTxCard } from './MessageCards';
+import { BlockCard, /* MiningCard, */ SubtreeCard, HandshakeCard, RejectedTxCard } from './MessageCards';
 import Pagination from './Pagination';
 
 interface MessageListSectionProps {
@@ -125,8 +125,9 @@ export const MessageListSection: React.FC<MessageListSectionProps> = ({ peerID, 
             switch (messageType) {
               case 'block':
                 return <BlockCard key={message.ID} block={parsedMessage as Block} isNew={false} />;
-              case 'miningon':
-                return <MiningCard key={message.ID} mining={parsedMessage as MiningOn} isNew={false} />;
+              // Temporarily disabled miningon messages
+              // case 'miningon':
+              //   return <MiningCard key={message.ID} mining={parsedMessage as MiningOn} isNew={false} />;
               case 'subtree':
                 return <SubtreeCard key={message.ID} subtree={parsedMessage as Subtree} isNew={false} />;
               case 'handshake':

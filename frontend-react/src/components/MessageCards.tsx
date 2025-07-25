@@ -167,60 +167,61 @@ export const BlockCard: React.FC<BlockCardProps> = ({ block, isNew }) => (
   </MessageCardBase>
 );
 
-interface MiningCardProps {
-  mining: MiningOn;
-  isNew?: boolean;
-}
+// Temporarily commenting out MiningCard component
+// interface MiningCardProps {
+//   mining: MiningOn;
+//   isNew?: boolean;
+// }
 
-export const MiningCard: React.FC<MiningCardProps> = ({ mining, isNew }) => (
-  <MessageCardBase
-    icon="⛏️"
-    title="Mining Activity"
-    network={mining.Network}
-    receivedAt={mining.ReceivedAt}
-    isNew={isNew}
-    sentFromPeer={mining.sentFromPeer}
-    peerID={mining.PeerID}
-  >
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-      <div>
-        <span className="text-xs sm:text-sm font-medium text-gray-500">Block Hash</span>
-        <p className="font-mono text-xs sm:text-sm text-gray-900 truncate" title={mining.Hash}>
-          {mining.Hash}
-        </p>
-      </div>
-      <div>
-        <span className="text-xs sm:text-sm font-medium text-gray-500">Height</span>
-        <p className="text-xs sm:text-sm text-gray-900">{mining.Height?.toLocaleString() || 'N/A'}</p>
-      </div>
-    </div>
+// export const MiningCard: React.FC<MiningCardProps> = ({ mining, isNew }) => (
+//   <MessageCardBase
+//     icon="⛏️"
+//     title="Mining Activity"
+//     network={mining.Network}
+//     receivedAt={mining.ReceivedAt}
+//     isNew={isNew}
+//     sentFromPeer={mining.sentFromPeer}
+//     peerID={mining.PeerID}
+//   >
+//     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+//       <div>
+//         <span className="text-xs sm:text-sm font-medium text-gray-500">Block Hash</span>
+//         <p className="font-mono text-xs sm:text-sm text-gray-900 truncate" title={mining.Hash}>
+//           {mining.Hash}
+//         </p>
+//       </div>
+//       <div>
+//         <span className="text-xs sm:text-sm font-medium text-gray-500">Height</span>
+//         <p className="text-xs sm:text-sm text-gray-900">{mining.Height?.toLocaleString() || 'N/A'}</p>
+//       </div>
+//     </div>
     
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-      <div>
-        <span className="text-xs sm:text-sm font-medium text-gray-500">Size</span>
-        <p className="text-xs sm:text-sm text-gray-900">{mining.SizeInBytes ? (mining.SizeInBytes / 1024).toFixed(1) + ' KB' : 'N/A'}</p>
-      </div>
-      <div>
-        <span className="text-xs sm:text-sm font-medium text-gray-500">TX Count</span>
-        <p className="text-xs sm:text-sm text-gray-900">{mining.TxCount?.toLocaleString() || 'N/A'}</p>
-      </div>
-    </div>
+//     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+//       <div>
+//         <span className="text-xs sm:text-sm font-medium text-gray-500">Size</span>
+//         <p className="text-xs sm:text-sm text-gray-900">{mining.SizeInBytes ? (mining.SizeInBytes / 1024).toFixed(1) + ' KB' : 'N/A'}</p>
+//       </div>
+//       <div>
+//         <span className="text-xs sm:text-sm font-medium text-gray-500">TX Count</span>
+//         <p className="text-xs sm:text-sm text-gray-900">{mining.TxCount?.toLocaleString() || 'N/A'}</p>
+//       </div>
+//     </div>
     
-    <div>
-      <span className="text-sm font-medium text-gray-500">Miner</span>
-      <p className="font-mono text-sm text-gray-900 truncate" title={mining.Miner}>
-        {mining.Miner || 'Unknown'}
-      </p>
-    </div>
+//     <div>
+//       <span className="text-sm font-medium text-gray-500">Miner</span>
+//       <p className="font-mono text-sm text-gray-900 truncate" title={mining.Miner}>
+//         {mining.Miner || 'Unknown'}
+//       </p>
+//     </div>
     
-    <div>
-      <span className="text-sm font-medium text-gray-500">Previous Hash</span>
-      <p className="font-mono text-sm text-gray-900 truncate" title={mining.PreviousHash}>
-        {mining.PreviousHash}
-      </p>
-    </div>
-  </MessageCardBase>
-);
+//     <div>
+//       <span className="text-sm font-medium text-gray-500">Previous Hash</span>
+//       <p className="font-mono text-sm text-gray-900 truncate" title={mining.PreviousHash}>
+//         {mining.PreviousHash}
+//       </p>
+//     </div>
+//   </MessageCardBase>
+// );
 
 interface SubtreeCardProps {
   subtree: Subtree;

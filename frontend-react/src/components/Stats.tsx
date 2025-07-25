@@ -63,7 +63,7 @@ const Stats: React.FC = () => {
   const getMessageTypeIcon = (type: string) => {
     switch (type) {
       case 'block': return '🔲';
-      case 'miningon': return '⛏️';
+      // case 'miningon': return '⛏️'; // Temporarily disabled
       case 'subtree': return '🌳';
       case 'handshake': return '🤝';
       case 'rejected_tx': return '❌';

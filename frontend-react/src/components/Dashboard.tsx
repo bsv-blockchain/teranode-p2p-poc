@@ -10,7 +10,7 @@ import PaginationComponent from './Pagination';
 import WebSocketStatusComponent from './WebSocketStatus';
 import { 
   BlockCard, 
-  MiningCard, 
+  // MiningCard, // Temporarily disabled
   SubtreeCard, 
   HandshakeCard, 
   RejectedTxCard
@@ -172,8 +172,9 @@ export const Dashboard: React.FC = () => {
     switch (messageType) {
       case 'block':
         return <BlockCard key={item.ID || index} block={item as Block} isNew={isNew} />;
-      case 'miningon':
-        return <MiningCard key={item.ID || index} mining={item as MiningOn} isNew={isNew} />;
+      // Temporarily disabling miningon message type
+      // case 'miningon':
+      //   return <MiningCard key={item.ID || index} mining={item as MiningOn} isNew={isNew} />;
       case 'subtree':
         return <SubtreeCard key={item.ID || index} subtree={item as Subtree} isNew={isNew} />;
       case 'handshake':

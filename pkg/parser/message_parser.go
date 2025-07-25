@@ -114,7 +114,9 @@ func GetNetworks() []string {
 
 // GetMessageTypes returns all supported message types
 func GetMessageTypes() []string {
-	return []string{"bestblock", "block", "miningon", "subtree", "handshake", "rejected_tx"}
+	// Temporarily removing "miningon" from visible message types
+	// return []string{"bestblock", "block", "miningon", "subtree", "handshake", "rejected_tx"}
+	return []string{"bestblock", "block", "subtree", "handshake", "rejected_tx"}
 }
 
 // GenerateTopics generates all topic combinations for the given networks
