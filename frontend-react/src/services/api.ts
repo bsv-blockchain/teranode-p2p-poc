@@ -77,9 +77,8 @@ export class ApiService {
       return await response.json();
     } catch (error) {
       console.error('Error fetching networks:', error);
-      // Temporarily only showing mainnet and testnet for mobile UI
-      return ['mainnet', 'testnet'];
-      // Full list: ['mainnet', 'testnet', 'regtest', 'stn', 'teratestnet', 'tstn'];
+      // Return selected networks as fallback
+      return ['mainnet', 'testnet', 'teratestnet'];
     }
   }
 

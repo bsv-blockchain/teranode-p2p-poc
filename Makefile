@@ -2,6 +2,7 @@
 BINARY_NAME=teranode-p2p-poc
 FRONTEND_DIR=frontend-react
 BUILD_DIR=build
+REACT_PORT?=30001
 
 # Default target
 .PHONY: all
@@ -22,6 +23,9 @@ help:
 	@echo "  docker-build     - Build Docker image"
 	@echo "  docker-run       - Run Docker container"
 	@echo "  help             - Show this help message"
+	@echo ""
+	@echo "Environment variables:"
+	@echo "  REACT_PORT       - Port for React dev server (default: 30001)"
 
 # Install React dependencies
 .PHONY: install-frontend
@@ -59,13 +63,13 @@ run: build
 .PHONY: dev
 dev: install-frontend
 	@echo "Starting development servers..."
-	@echo "Go server will run on :8080, React dev server on :3000"
-	@echo "Open http://localhost:3000 for development or http://localhost:8080 for production build"
+	@echo "Go server will run on :8080, React dev server on :$(REACT_PORT)"
+	@echo "Open http://localhost:$(REACT_PORT) for development or http://localhost:8080 for production build"
 	@if [ ! -f config.yaml ]; then \
 		echo "Warning: config.yaml not found. Make sure to create it before running."; \
 	fi
 	@trap 'kill %1 %2' EXIT; \
-	(cd $(FRONTEND_DIR) && npm start) & \
+	(cd $(FRONTEND_DIR) && PORT=$(REACT_PORT) npm start) & \
 	go run cmd/main.go & \
 	wait
 

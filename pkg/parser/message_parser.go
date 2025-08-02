@@ -107,9 +107,8 @@ func ParseMessage(topic string, data []byte) (*ParsedMessage, error) {
 
 // GetNetworks returns all supported networks
 func GetNetworks() []string {
-	// Temporarily only showing mainnet and testnet for mobile UI
-	return []string{"mainnet", "testnet"}
-	// Full list: {"mainnet", "testnet", "regtest", "stn", "teratestnet", "tstn"}
+	// Return only the networks we want to show in the UI
+	return []string{"mainnet", "testnet", "teratestnet"}
 }
 
 // GetMessageTypes returns all supported message types
