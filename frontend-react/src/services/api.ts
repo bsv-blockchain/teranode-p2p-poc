@@ -77,9 +77,8 @@ export class ApiService {
       return await response.json();
     } catch (error) {
       console.error('Error fetching networks:', error);
-      // Temporarily only showing mainnet and testnet for mobile UI
-      return ['mainnet', 'testnet'];
-      // Full list: ['mainnet', 'testnet', 'regtest', 'stn', 'teratestnet', 'tstn'];
+      // Return selected networks as fallback
+      return ['mainnet', 'testnet', 'teratestnet'];
     }
   }
 
@@ -92,7 +91,9 @@ export class ApiService {
       return await response.json();
     } catch (error) {
       console.error('Error fetching message types:', error);
-      return ['block', 'miningon', 'subtree', 'handshake', 'rejected_tx'];
+      // Temporarily removing 'miningon' from visible message types
+      // return ['block', 'miningon', 'subtree', 'handshake', 'rejected_tx'];
+      return ['block', 'subtree', 'handshake', 'rejected_tx'];
     }
   }
 
@@ -232,8 +233,9 @@ export class ApiService {
       switch (filters.messageType) {
         case 'block':
           return await this.getBlocks(filters);
-        case 'miningon':
-          return await this.getMiningMessages(filters);
+        // Temporarily disabling miningon message type
+        // case 'miningon':
+        //   return await this.getMiningMessages(filters);
         case 'subtree':
           return await this.getSubtrees(filters);
         case 'handshake':

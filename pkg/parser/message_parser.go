@@ -107,14 +107,15 @@ func ParseMessage(topic string, data []byte) (*ParsedMessage, error) {
 
 // GetNetworks returns all supported networks
 func GetNetworks() []string {
-	// Temporarily only showing mainnet and testnet for mobile UI
-	return []string{"mainnet", "testnet"}
-	// Full list: {"mainnet", "testnet", "regtest", "stn", "teratestnet", "tstn"}
+	// Return only the networks we want to show in the UI
+	return []string{"mainnet", "testnet", "teratestnet"}
 }
 
 // GetMessageTypes returns all supported message types
 func GetMessageTypes() []string {
-	return []string{"bestblock", "block", "miningon", "subtree", "handshake", "rejected_tx"}
+	// Temporarily removing "miningon" from visible message types
+	// return []string{"bestblock", "block", "miningon", "subtree", "handshake", "rejected_tx"}
+	return []string{"bestblock", "block", "subtree", "handshake", "rejected_tx"}
 }
 
 // GenerateTopics generates all topic combinations for the given networks

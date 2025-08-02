@@ -122,7 +122,7 @@ const PeerDetail: React.FC = () => {
   const getMessageTypeIcon = (type: string) => {
     const icons: Record<string, string> = {
       block: '📦',
-      miningon: '⛏️',
+      // miningon: '⛏️', // Temporarily disabled
       subtree: '🌳',
       handshake: '🤝',
       rejected_tx: '❌',

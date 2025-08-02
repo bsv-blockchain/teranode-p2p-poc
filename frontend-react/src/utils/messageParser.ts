@@ -32,8 +32,9 @@ export class MessageParser {
         case 'block':
           return this.parseBlockMessage(baseMessage, parsedData);
         
-        case 'miningon':
-          return this.parseMiningMessage(baseMessage, parsedData);
+        // Temporarily disabled miningon messages
+        // case 'miningon':
+        //   return this.parseMiningMessage(baseMessage, parsedData);
         
         case 'subtree':
           return this.parseSubtreeMessage(baseMessage, parsedData);
