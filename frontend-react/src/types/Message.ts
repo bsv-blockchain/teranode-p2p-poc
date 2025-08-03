@@ -103,8 +103,23 @@ export interface Block {
   DataHubURL: string;
   PeerID: string;  // Peer ID from within the message data
   sentFromPeer?: string;  // Peer who sent this message to us
+  Header?: string;  // Hex-encoded block header
   ReceivedAt: string;
   Topic?: string;  // For WebSocket messages
+}
+
+export interface BlockHeader {
+  ID: number;
+  Network: string;
+  Hash: string;
+  Height: number;
+  Version: number;
+  PreviousHash: string;
+  MerkleRoot: string;
+  Timestamp: number;
+  Bits: number;
+  Nonce: number;
+  ReceivedAt: string;
 }
 
 export interface MiningOn {

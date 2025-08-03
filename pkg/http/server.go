@@ -287,6 +287,74 @@ func InitServer(log *logrus.Logger, db *gorm.DB) {
 		json.NewEncoder(w).Encode(rejectedTxs)
 	}))
 
+	// Block headers endpoint
+	http.HandleFunc("/api/block-headers", enableCORS(func(w http.ResponseWriter, r *http.Request) {
+		network := r.URL.Query().Get("network")
+		hash := r.URL.Query().Get("hash")
+		heightStr := r.URL.Query().Get("height")
+		minHeightStr := r.URL.Query().Get("min_height")
+		maxHeightStr := r.URL.Query().Get("max_height")
+		minTimestampStr := r.URL.Query().Get("min_timestamp")
+		maxTimestampStr := r.URL.Query().Get("max_timestamp")
+		limit := 100
+		offset := 0
+
+		if l := r.URL.Query().Get("limit"); l != "" {
+			if n, err := strconv.Atoi(l); err == nil && n > 0 && n <= 500 {
+				limit = n
+			}
+		}
+		if o := r.URL.Query().Get("offset"); o != "" {
+			if n, err := strconv.Atoi(o); err == nil && n >= 0 {
+				offset = n
+			}
+		}
+
+		var blockHeaders []model.BlockHeader
+		query := db.Order("received_at desc").Limit(limit).Offset(offset)
+		
+		if network != "" {
+			query = query.Where("network = ?", network)
+		}
+		if hash != "" {
+			query = query.Where("hash = ?", hash)
+		}
+		if heightStr != "" {
+			if height, err := strconv.ParseUint(heightStr, 10, 32); err == nil {
+				query = query.Where("height = ?", height)
+			}
+		}
+		if minHeightStr != "" {
+			if minHeight, err := strconv.ParseUint(minHeightStr, 10, 32); err == nil {
+				query = query.Where("height >= ?", minHeight)
+			}
+		}
+		if maxHeightStr != "" {
+			if maxHeight, err := strconv.ParseUint(maxHeightStr, 10, 32); err == nil {
+				query = query.Where("height <= ?", maxHeight)
+			}
+		}
+		if minTimestampStr != "" {
+			if minTimestamp, err := strconv.ParseInt(minTimestampStr, 10, 64); err == nil {
+				query = query.Where("timestamp >= ?", minTimestamp)
+			}
+		}
+		if maxTimestampStr != "" {
+			if maxTimestamp, err := strconv.ParseInt(maxTimestampStr, 10, 64); err == nil {
+				query = query.Where("timestamp <= ?", maxTimestamp)
+			}
+		}
+		
+		if err := query.Find(&blockHeaders).Error; err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(blockHeaders)
+	}))
+
 	// Networks endpoint - returns available networks
 	http.HandleFunc("/api/networks", enableCORS(func(w http.ResponseWriter, r *http.Request) {
 		networks := parser.GetNetworks()

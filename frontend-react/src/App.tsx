@@ -4,6 +4,7 @@ import { Dashboard } from './components/Dashboard';
 import Peers from './components/Peers';
 import PeerDetail from './components/PeerDetail';
 import Stats from './components/Stats';
+import { BlockExplorer } from './components/BlockExplorer';
 import './App.css';
 
 function Navigation() {
@@ -69,6 +70,16 @@ function Navigation() {
                 }`}
               >
                 Peers
+              </Link>
+              <Link
+                to="/blocks"
+                className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
+                  location.pathname === '/blocks' 
+                    ? 'border-blue-500 text-gray-900' 
+                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                }`}
+              >
+                Blocks
               </Link>
             </div>
           </div>
@@ -137,6 +148,16 @@ function Navigation() {
           >
             Peers
           </Link>
+          <Link
+            to="/blocks"
+            className={`block px-3 py-2 rounded-md text-base font-medium ${
+              location.pathname === '/blocks' 
+                ? 'bg-blue-50 border-blue-500 text-blue-700' 
+                : 'text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800'
+            } border-l-4`}
+          >
+            Blocks
+          </Link>
         </div>
       </div>
     </nav>
@@ -155,6 +176,7 @@ function App() {
           <Route path="/stats" element={<Stats />} />
           <Route path="/peers" element={<Peers />} />
           <Route path="/peers/:peerID" element={<PeerDetail />} />
+          <Route path="/blocks" element={<BlockExplorer />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>

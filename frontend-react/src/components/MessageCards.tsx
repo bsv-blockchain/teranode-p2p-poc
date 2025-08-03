@@ -163,6 +163,12 @@ export const BlockCard: React.FC<BlockCardProps> = ({ block, isNew }) => (
         <span className="text-xs sm:text-sm font-medium text-gray-500">Height</span>
         <p className="text-xs sm:text-sm text-gray-900">{block.Height?.toLocaleString() || 'N/A'}</p>
       </div>
+      {block.Header && (
+        <div className="col-span-full">
+          <span className="text-xs sm:text-sm font-medium text-gray-500">Block Header Available</span>
+          <p className="text-xs sm:text-sm text-green-600">✓ Full header data stored</p>
+        </div>
+      )}
     </div>
   </MessageCardBase>
 );

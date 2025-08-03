@@ -7,6 +7,7 @@ import {
   Network,
   MessageType,
   Block,
+  BlockHeader,
   MiningOn,
   Subtree,
   Handshake,
@@ -309,6 +310,36 @@ export class ApiService {
 
   static async getPeerDetail(peerID: string): Promise<import('../types/Message').PeerDetail> {
     const response = await fetch(`${API_BASE_URL}/api/peers/${encodeURIComponent(peerID)}`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  }
+
+  static async getBlockHeaders(params: {
+    network?: string;
+    hash?: string;
+    height?: number;
+    minHeight?: number;
+    maxHeight?: number;
+    minTimestamp?: number;
+    maxTimestamp?: number;
+    limit?: number;
+    offset?: number;
+  } = {}): Promise<BlockHeader[]> {
+    const queryParams = new URLSearchParams();
+    
+    if (params.network) queryParams.append('network', params.network);
+    if (params.hash) queryParams.append('hash', params.hash);
+    if (params.height !== undefined) queryParams.append('height', params.height.toString());
+    if (params.minHeight !== undefined) queryParams.append('min_height', params.minHeight.toString());
+    if (params.maxHeight !== undefined) queryParams.append('max_height', params.maxHeight.toString());
+    if (params.minTimestamp !== undefined) queryParams.append('min_timestamp', params.minTimestamp.toString());
+    if (params.maxTimestamp !== undefined) queryParams.append('max_timestamp', params.maxTimestamp.toString());
+    if (params.limit !== undefined) queryParams.append('limit', params.limit.toString());
+    if (params.offset !== undefined) queryParams.append('offset', params.offset.toString());
+
+    const response = await fetch(`${API_BASE_URL}/api/block-headers?${queryParams.toString()}`);
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }

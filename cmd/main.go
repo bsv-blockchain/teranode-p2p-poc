@@ -84,7 +84,7 @@ func main() {
 		DHTProtocolID:      dhtProtocolID,
 	}
 
-	node, err := p2p.NewP2PNode(ctx, log, config)
+	node, err := p2p.NewNode(ctx, log, config)
 	if err != nil {
 		panic(err)
 	}
@@ -117,7 +117,7 @@ func main() {
 
 			// Capture timestamp once for consistent storage
 			receivedAt := time.Now()
-			
+
 			// Store parsed message in appropriate table
 			var storeErr error
 			switch parsedMsg.Type {
@@ -137,8 +137,27 @@ func main() {
 					Height:     blockMsg.Height,
 					DataHubURL: blockMsg.DataHubURL,
 					PeerID:     blockMsg.PeerID,
+					Header:     blockMsg.Header,
 					ReceivedAt: receivedAt,
 				}).Error
+
+				// Parse and store block header if available
+				if storeErr == nil && blockMsg.Header != "" {
+					blockHeader, parseErr := parser.ParseBlockHeader(blockMsg.Header, parsedMsg.Network, receivedAt)
+					if parseErr != nil {
+						log.Errorf("Failed to parse block header: %v", parseErr)
+					} else {
+						// Update height from the block message
+						blockHeader.Height = blockMsg.Height
+						blockHeader.Hash = blockMsg.Hash
+
+						if err := db.Create(blockHeader).Error; err != nil {
+							log.Errorf("Failed to store block header: %v", err)
+						} else {
+							log.Infof("Stored block header for block %s at height %d", blockMsg.Hash, blockMsg.Height)
+						}
+					}
+				}
 
 			case parser.TypeMiningOn:
 				miningMsg := parsedMsg.Data.(p2p.MiningOnMessage)
