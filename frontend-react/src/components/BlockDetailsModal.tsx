@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { BlockHeader } from '../types/Message';
 
 interface BlockDetailsModalProps {
@@ -8,17 +8,6 @@ interface BlockDetailsModalProps {
 }
 
 export const BlockDetailsModal: React.FC<BlockDetailsModalProps> = ({ blockHeader, isOpen, onClose }) => {
-  const [coinbaseData, setCoinbaseData] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (blockHeader && isOpen) {
-      // TODO: Fetch coinbase transaction data when API is available
-      // For now, we'll display the block header information
-      setCoinbaseData(null);
-    }
-  }, [blockHeader, isOpen]);
-
   if (!isOpen || !blockHeader) return null;
 
   const formatTimestamp = (timestamp: number) => {
@@ -182,24 +171,79 @@ export const BlockDetailsModal: React.FC<BlockDetailsModalProps> = ({ blockHeade
                 Coinbase Transaction
               </h4>
 
-              {loading ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#1B1EA9] border-t-transparent"></div>
-                </div>
-              ) : coinbaseData ? (
-                <div className="space-y-3">
-                  {/* Coinbase data will be displayed here when API is available */}
-                  <div className="text-gray-600">Coinbase transaction details will be available soon.</div>
+              {blockHeader.CoinbaseTxID ? (
+                <div className="space-y-4">
+                  {/* Transaction ID */}
+                  <div>
+                    <label className="text-sm text-gray-500">Transaction ID</label>
+                    <div className="flex items-center gap-2">
+                      <p className="font-mono text-sm text-gray-900 break-all">{blockHeader.CoinbaseTxID}</p>
+                      <button
+                        onClick={() => navigator.clipboard.writeText(blockHeader.CoinbaseTxID || '')}
+                        className="flex-shrink-0 text-gray-400 hover:text-gray-600"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Block Reward */}
+                    <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4">
+                      <label className="text-sm text-green-700 font-medium">Total Output Value</label>
+                      <p className="text-2xl font-bold text-green-900">
+                        {blockHeader.CoinbaseValue ? (blockHeader.CoinbaseValue / 100000000).toFixed(8) : '0'} BSV
+                      </p>
+                      <p className="text-sm text-green-600 mt-1">
+                        {blockHeader.CoinbaseValue?.toLocaleString()} satoshis
+                      </p>
+                    </div>
+
+                    {/* Miner Info */}
+                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4">
+                      <label className="text-sm text-blue-700 font-medium">Miner</label>
+                      <p className="text-lg font-semibold text-blue-900">
+                        {blockHeader.MinerAddress || 'Unknown'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Coinbase Text */}
+                  {blockHeader.CoinbaseText && (
+                    <div>
+                      <label className="text-sm text-gray-500">Coinbase Message</label>
+                      <div className="bg-gray-50 rounded-lg p-3 mt-1">
+                        <p className="text-sm text-gray-700 font-mono break-all">{blockHeader.CoinbaseText}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Coinbase Script */}
+                  {blockHeader.CoinbaseScript && (
+                    <details className="group">
+                      <summary className="cursor-pointer text-sm text-gray-600 hover:text-gray-900 flex items-center gap-2">
+                        <svg className="w-4 h-4 transform group-open:rotate-90 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                        View Raw Coinbase Script
+                      </summary>
+                      <div className="mt-2 bg-gray-100 rounded-lg p-3">
+                        <p className="text-xs font-mono text-gray-600 break-all">{blockHeader.CoinbaseScript}</p>
+                      </div>
+                    </details>
+                  )}
                 </div>
               ) : (
                 <div className="text-center py-8">
                   <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-4">
                     <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
-                  <p className="text-gray-600">Coinbase transaction data not yet available</p>
-                  <p className="text-sm text-gray-500 mt-2">This feature requires additional API endpoints</p>
+                  <p className="text-gray-600">Coinbase data pending</p>
+                  <p className="text-sm text-gray-500 mt-2">Check back in a few moments</p>
                 </div>
               )}
             </div>

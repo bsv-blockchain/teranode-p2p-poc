@@ -120,6 +120,12 @@ export interface BlockHeader {
   Bits: number;
   Nonce: number;
   ReceivedAt: string;
+  // Coinbase transaction fields
+  CoinbaseValue?: number;
+  CoinbaseScript?: string;
+  MinerAddress?: string;
+  CoinbaseTxID?: string;
+  CoinbaseText?: string;
 }
 
 export interface MiningOn {

@@ -6,6 +6,7 @@ import (
 	"github.com/bsv-blockchain/teranode-p2p-poc/pkg/http"
 	"github.com/bsv-blockchain/teranode-p2p-poc/pkg/model"
 	"github.com/bsv-blockchain/teranode-p2p-poc/pkg/parser"
+	"github.com/bsv-blockchain/teranode-p2p-poc/pkg/service"
 	"github.com/bsv-blockchain/teranode-p2p-poc/pkg/websocket"
 	"github.com/sirupsen/logrus"
 	"strings"
@@ -231,6 +232,25 @@ func main() {
 
 	// Start HTTP server for querying messages
 	go http.InitServer(log, db)
+
+	// Initialize coinbase service
+	coinbaseService := service.NewCoinbaseService(db, log)
+	
+	// Start background processing of coinbase data
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		
+		// Process once on startup
+		coinbaseService.ProcessPendingBlocks()
+		
+		for {
+			select {
+			case <-ticker.C:
+				coinbaseService.ProcessPendingBlocks()
+			}
+		}
+	}()
 
 	go func() {
 		ticker := time.NewTicker(2 * time.Minute)
