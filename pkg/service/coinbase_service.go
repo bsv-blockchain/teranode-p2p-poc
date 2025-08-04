@@ -36,7 +36,12 @@ func (s *CoinbaseService) ProcessBlockCoinbase(block *model.Block) error {
 	// Check if we already have coinbase data for this block
 	var blockHeader model.BlockHeader
 	if err := s.db.Where("hash = ? AND network = ?", block.Hash, block.Network).First(&blockHeader).Error; err != nil {
-		s.log.Errorf("Failed to find block header for %s: %v", block.Hash, err)
+		if err == gorm.ErrRecordNotFound {
+			// Block header doesn't exist yet - this is expected for blocks received before the header parsing feature was added
+			s.log.Debugf("Block header not found for %s (network: %s), skipping coinbase processing", block.Hash, block.Network)
+			return nil
+		}
+		s.log.Errorf("Failed to query block header for %s: %v", block.Hash, err)
 		return err
 	}
 
@@ -127,11 +132,12 @@ func (s *CoinbaseService) extractCoinbaseData(tx *datahub.Transaction, height ui
 
 // ProcessPendingBlocks processes blocks that don't have coinbase data yet
 func (s *CoinbaseService) ProcessPendingBlocks() {
-	// Find blocks without coinbase data
+	// Find blocks that have block headers but no coinbase data
 	var blocks []model.Block
-	query := s.db.Joins("LEFT JOIN block_headers ON blocks.hash = block_headers.hash AND blocks.network = block_headers.network").
+	query := s.db.Joins("INNER JOIN block_headers ON blocks.hash = block_headers.hash AND blocks.network = block_headers.network").
 		Where("block_headers.coinbase_tx_id IS NULL OR block_headers.coinbase_tx_id = ''").
 		Where("blocks.data_hub_url != ''").
+		Order("blocks.height DESC"). // Process newest blocks first
 		Limit(10) // Process 10 at a time
 
 	if err := query.Find(&blocks).Error; err != nil {
@@ -139,11 +145,16 @@ func (s *CoinbaseService) ProcessPendingBlocks() {
 		return
 	}
 
-	s.log.Infof("Found %d blocks to process for coinbase data", len(blocks))
+	if len(blocks) > 0 {
+		s.log.Infof("Found %d blocks to process for coinbase data", len(blocks))
+	}
 
 	for _, block := range blocks {
 		if err := s.ProcessBlockCoinbase(&block); err != nil {
-			s.log.Errorf("Failed to process coinbase for block %s: %v", block.Hash, err)
+			// Only log actual errors, not expected "not found" cases
+			if err != gorm.ErrRecordNotFound {
+				s.log.Errorf("Failed to process coinbase for block %s: %v", block.Hash, err)
+			}
 			// Continue with next block
 		}
 		

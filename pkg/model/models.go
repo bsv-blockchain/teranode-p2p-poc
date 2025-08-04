@@ -8,6 +8,7 @@ func MigrateAll(db *gorm.DB) error {
 		&Message{},      // Keep existing generic message table
 		&Block{},
 		&BlockHeader{},  // New table for parsed block headers
+		&BestBlockRequest{},
 		&MiningOn{},
 		&Subtree{},
 		&Handshake{},

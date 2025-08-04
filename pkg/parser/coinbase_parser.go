@@ -2,7 +2,6 @@ package parser
 
 import (
 	"encoding/hex"
-	"fmt"
 	"strings"
 	"unicode"
 )
@@ -37,10 +36,10 @@ func ParseCoinbaseScript(scriptHex string) string {
 
 	// Clean up the text
 	result := strings.TrimSpace(text.String())
-	
+
 	// Remove excessive spaces
 	result = strings.Join(strings.Fields(result), " ")
-	
+
 	return result
 }
 
@@ -57,7 +56,7 @@ func ExtractMinerInfo(coinbaseText string) string {
 	}
 
 	lowerText := strings.ToLower(coinbaseText)
-	
+
 	for poolName, patterns := range poolPatterns {
 		for _, pattern := range patterns {
 			if strings.Contains(lowerText, strings.ToLower(pattern)) {
@@ -87,18 +86,18 @@ func CalculateBlockReward(height uint32) uint64 {
 	// BSV block reward schedule
 	// Initial reward: 50 BSV = 5,000,000,000 satoshis
 	// Halving every 210,000 blocks
-	
+
 	const initialReward = uint64(5000000000) // 50 BSV in satoshis
 	const halvingInterval = uint32(210000)
-	
+
 	halvings := height / halvingInterval
-	
+
 	// Block reward halves every 210,000 blocks
 	reward := initialReward
 	for i := uint32(0); i < halvings; i++ {
 		reward = reward / 2
 	}
-	
+
 	return reward
 }
 
@@ -157,10 +156,10 @@ func CleanCoinbaseText(text string) string {
 		}
 		return -1
 	}, text)
-	
+
 	// Trim and remove excessive whitespace
 	cleaned = strings.TrimSpace(cleaned)
 	cleaned = strings.Join(strings.Fields(cleaned), " ")
-	
+
 	return cleaned
 }

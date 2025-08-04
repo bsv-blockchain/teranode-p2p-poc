@@ -41,10 +41,26 @@ func main() {
 	}
 
 	// Initialize SQLite DB with GORM
-	db, err := gorm.Open(sqlite.Open(databasePath), &gorm.Config{})
+	// Enable WAL mode and optimize for concurrent reads
+	dsn := fmt.Sprintf("%s?_journal_mode=WAL&_busy_timeout=5000&_synchronous=NORMAL&cache=shared", databasePath)
+	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatalf("failed to connect to database [%s]: %v", databasePath, err)
 	}
+	
+	// Configure connection pool for SQLite
+	sqlDB, err := db.DB()
+	if err != nil {
+		log.Fatalf("failed to get underlying SQL database: %v", err)
+	}
+	
+	// Set max open connections to 1 for SQLite (prevents database locked errors)
+	// WAL mode allows multiple readers even with single writer
+	sqlDB.SetMaxOpenConns(1)
+	// Set max idle connections
+	sqlDB.SetMaxIdleConns(1)
+	// Set max lifetime of a connection
+	sqlDB.SetConnMaxLifetime(time.Hour)
 	// Auto-migrate all schemas
 	err = model.MigrateAll(db)
 	if err != nil {

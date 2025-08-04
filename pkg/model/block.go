@@ -13,7 +13,7 @@ type Block struct {
 	DataHubURL string    `gorm:"type:text" json:"DataHubURL"`
 	PeerID     string    `gorm:"index;not null" json:"PeerID"`
 	Header     string    `gorm:"type:text" json:"Header"`
-	ReceivedAt time.Time `json:"ReceivedAt"`
+	ReceivedAt time.Time `gorm:"index" json:"ReceivedAt"`
 }
 
 type BlockHeader struct {

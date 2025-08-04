@@ -15,5 +15,5 @@ type Handshake struct {
 	DataHubURL string    `gorm:"type:text"`
 	UserAgent  string    `gorm:"type:text"`
 	Services   uint64    
-	ReceivedAt time.Time
+	ReceivedAt time.Time `gorm:"index"`
 }

@@ -11,5 +11,5 @@ type RejectedTx struct {
 	TxID       string    `gorm:"index;not null"`
 	Reason     string    `gorm:"type:text"`
 	PeerID     string    `gorm:"index;not null"`
-	ReceivedAt time.Time
+	ReceivedAt time.Time `gorm:"index"`
 }

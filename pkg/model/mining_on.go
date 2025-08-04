@@ -16,5 +16,5 @@ type MiningOn struct {
 	Miner        string    `gorm:"index"`
 	SizeInBytes  uint64    
 	TxCount      uint64    
-	ReceivedAt   time.Time
+	ReceivedAt   time.Time `gorm:"index"`
 }
