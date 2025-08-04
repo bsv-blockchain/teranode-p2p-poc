@@ -34,7 +34,7 @@ RUN CGO_ENABLED=1 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -o te
 # Use UBI9 so we have glibc
 FROM registry.access.redhat.com/ubi9-minimal:9.3
 WORKDIR /
-RUN microdnf install -y sqlite3
+RUN microdnf install -y sqlite
 COPY --from=builder /workspace/teranode-p2p-poc .
 COPY --from=frontend-builder /app/frontend-react/build ./frontend-react/build
 COPY config.yaml .
