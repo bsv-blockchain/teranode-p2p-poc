@@ -19,7 +19,6 @@ export const BlockExplorer: React.FC = () => {
   const [minHeight, setMinHeight] = useState<string>('');
   const [maxHeight, setMaxHeight] = useState<string>('');
   const [searchHash, setSearchHash] = useState<string>('');
-  const [selectedVersion, setSelectedVersion] = useState<string>('all');
   const [sortField, setSortField] = useState<'height' | 'timestamp'>('height');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   
@@ -30,9 +29,7 @@ export const BlockExplorer: React.FC = () => {
   
   // Stats
   const [stats, setStats] = useState({
-    totalTracked: 0,
-    latestHeights: {} as Record<string, number>,
-    blocksToday: 0
+    latestHeights: {} as Record<string, number>
   });
 
   // State for tracking if we need to refresh
@@ -56,7 +53,7 @@ export const BlockExplorer: React.FC = () => {
   useEffect(() => {
     fetchBlockHeaders();
     updateStats();
-  }, [selectedNetwork, minHeight, maxHeight, searchHash, selectedVersion, sortField, sortDirection, currentPage]);
+  }, [selectedNetwork, minHeight, maxHeight, searchHash, sortField, sortDirection, currentPage]);
 
   // Handle WebSocket refresh trigger
   useEffect(() => {
@@ -126,9 +123,7 @@ export const BlockExplorer: React.FC = () => {
     try {
       const stats = await ApiService.getMessageStats();
       setStats({
-        totalTracked: stats.totalMessages,
-        latestHeights: stats.latestBlockHeight,
-        blocksToday: stats.messagesToday
+        latestHeights: stats.latestBlockHeight
       });
     } catch (err) {
       console.error('Error fetching stats:', err);
@@ -172,7 +167,6 @@ export const BlockExplorer: React.FC = () => {
     setMinHeight('');
     setMaxHeight('');
     setSearchHash('');
-    setSelectedVersion('all');
     setSelectedNetwork('all');
     setCurrentPage(1);
   };
@@ -181,8 +175,7 @@ export const BlockExplorer: React.FC = () => {
     selectedNetwork !== 'all',
     minHeight !== '',
     maxHeight !== '',
-    searchHash !== '',
-    selectedVersion !== 'all'
+    searchHash !== ''
   ].filter(Boolean).length;
 
   return (
@@ -231,7 +224,7 @@ export const BlockExplorer: React.FC = () => {
                     <h3 className="text-lg font-semibold text-white/90 mb-4">Network Block Heights</h3>
                     
                     {/* Latest Heights */}
-                    <div className="space-y-3 mb-4">
+                    <div className="space-y-3">
                       {Object.entries(stats.latestHeights).map(([network, height]) => (
                         <div key={network} className="bg-white/10 rounded-xl p-3">
                           <div className="flex justify-between items-center">
@@ -240,18 +233,6 @@ export const BlockExplorer: React.FC = () => {
                           </div>
                         </div>
                       ))}
-                    </div>
-                    
-                    {/* Stats */}
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="bg-white/10 rounded-xl p-3">
-                        <div className="text-2xl font-bold text-white">{stats.totalTracked.toLocaleString()}</div>
-                        <div className="text-xs text-white/70">Total Tracked</div>
-                      </div>
-                      <div className="bg-white/10 rounded-xl p-3">
-                        <div className="text-2xl font-bold text-white">{stats.blocksToday.toLocaleString()}</div>
-                        <div className="text-xs text-white/70">Blocks Today</div>
-                      </div>
                     </div>
                     
                     {/* WebSocket Status */}
@@ -330,7 +311,7 @@ export const BlockExplorer: React.FC = () => {
             
             {/* Filter Content */}
             <div className="p-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Height Range */}
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-700">Height Range</label>
@@ -364,20 +345,6 @@ export const BlockExplorer: React.FC = () => {
                   />
                 </div>
 
-                {/* Version Filter */}
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">Block Version</label>
-                  <select
-                    value={selectedVersion}
-                    onChange={(e) => setSelectedVersion(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1B1EA9] focus:border-transparent"
-                  >
-                    <option value="all">All Versions</option>
-                    <option value="1">Version 1</option>
-                    <option value="2">Version 2</option>
-                    <option value="536870912">Version 536870912</option>
-                  </select>
-                </div>
               </div>
             </div>
           </div>
@@ -446,9 +413,6 @@ export const BlockExplorer: React.FC = () => {
                       </div>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Version
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Nonce
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -500,9 +464,6 @@ export const BlockExplorer: React.FC = () => {
                           <div>{formatTimestamp(header.Timestamp)}</div>
                           <div className="text-xs text-gray-400">{getRelativeTime(header.Timestamp)}</div>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {header.Version}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {header.Nonce.toLocaleString()}

@@ -23,6 +23,9 @@ ANALYZE;
 -- Note: GORM auto-migration should have created most of these,
 -- but this ensures they exist for production optimization
 
+-- Stats cache table indexes
+CREATE INDEX IF NOT EXISTS idx_stats_caches_calculated_at ON stats_caches(calculated_at);
+
 -- Messages table indexes
 CREATE INDEX IF NOT EXISTS idx_messages_topic ON messages(topic);
 CREATE INDEX IF NOT EXISTS idx_messages_received_at ON messages(received_at);
@@ -83,6 +86,15 @@ CREATE INDEX IF NOT EXISTS idx_messages_topic_received_at ON messages(topic, rec
 CREATE INDEX IF NOT EXISTS idx_blocks_network_height ON blocks(network, height);
 CREATE INDEX IF NOT EXISTS idx_block_headers_network_height ON block_headers(network, height);
 CREATE INDEX IF NOT EXISTS idx_block_headers_network_timestamp ON block_headers(network, timestamp);
+
+-- Indexes for stats calculation performance
+CREATE INDEX IF NOT EXISTS idx_messages_peer_received_at ON messages(peer, received_at);
+CREATE INDEX IF NOT EXISTS idx_blocks_peer_id_received_at ON blocks(peer_id, received_at);
+CREATE INDEX IF NOT EXISTS idx_mining_ons_peer_id_received_at ON mining_ons(peer_id, received_at);
+CREATE INDEX IF NOT EXISTS idx_subtrees_peer_id_received_at ON subtrees(peer_id, received_at);
+CREATE INDEX IF NOT EXISTS idx_handshakes_peer_id_received_at ON handshakes(peer_id, received_at);
+CREATE INDEX IF NOT EXISTS idx_rejected_txes_peer_id_received_at ON rejected_txes(peer_id, received_at);
+CREATE INDEX IF NOT EXISTS idx_best_block_requests_peer_id_received_at ON best_block_requests(peer_id, received_at);
 
 -- Update statistics
 ANALYZE;

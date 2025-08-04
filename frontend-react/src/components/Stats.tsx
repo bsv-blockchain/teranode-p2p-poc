@@ -289,12 +289,16 @@ const Stats: React.FC = () => {
           </div>
         </div>
 
-        {/* Last Update */}
-        {stats.lastMessageTime && (
-          <div className="text-center text-sm text-gray-600 pb-8">
-            Last message received: {formatTime(stats.lastMessageTime)}
+        {/* Last Update and Cache Info */}
+        <div className="text-center text-sm text-gray-600 pb-8">
+          {stats.lastMessageTime && (
+            <div>Last message received: {formatTime(stats.lastMessageTime)}</div>
+          )}
+          <div className="mt-1">
+            Stats updated {stats.cacheAge < 60 ? `${stats.cacheAge} seconds` : `${Math.round(stats.cacheAge / 60)} minutes`} ago
+            {stats.calculationTimeMs > 0 && ` • Calculated in ${stats.calculationTimeMs}ms`}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

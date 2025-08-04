@@ -246,11 +246,23 @@ func main() {
 		}
 	}
 
+	// Initialize stats service first
+	statsService := service.NewStatsService(db, log)
+	
 	// Start HTTP server for querying messages
-	go http.InitServer(log, db)
+	go http.InitServer(log, db, statsService)
 
 	// Initialize coinbase service
 	coinbaseService := service.NewCoinbaseService(db, log)
+	
+	// Calculate stats once on startup
+	go func() {
+		// Small delay to let some messages accumulate
+		time.Sleep(5 * time.Second)
+		if err := statsService.CalculateStats(); err != nil {
+			log.Errorf("Failed to calculate initial stats: %v", err)
+		}
+	}()
 	
 	// Start background processing of coinbase data
 	go func() {
@@ -264,6 +276,21 @@ func main() {
 			select {
 			case <-ticker.C:
 				coinbaseService.ProcessPendingBlocks()
+			}
+		}
+	}()
+	
+	// Start background stats calculation (every minute)
+	go func() {
+		ticker := time.NewTicker(1 * time.Minute)
+		defer ticker.Stop()
+		
+		for {
+			select {
+			case <-ticker.C:
+				if err := statsService.CalculateStats(); err != nil {
+					log.Errorf("Failed to calculate stats: %v", err)
+				}
 			}
 		}
 	}()

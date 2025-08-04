@@ -52,6 +52,8 @@ export interface MessageStats {
   lastMessageTime?: string;
   topicStats: TopicStat[];
   topPeers: PeerSummary[];
+  cacheAge: number;  // Age of cached data in seconds
+  calculationTimeMs: number;  // Time taken to calculate stats in milliseconds
 }
 
 export interface PeerStat {

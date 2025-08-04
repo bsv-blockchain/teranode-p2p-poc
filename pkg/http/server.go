@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/bsv-blockchain/teranode-p2p-poc/pkg/model"
 	"github.com/bsv-blockchain/teranode-p2p-poc/pkg/parser"
+	"github.com/bsv-blockchain/teranode-p2p-poc/pkg/service"
 	tWebsocket "github.com/bsv-blockchain/teranode-p2p-poc/pkg/websocket"
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
@@ -37,7 +38,7 @@ func enableCORS(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-func InitServer(log *logrus.Logger, db *gorm.DB) {
+func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsService) {
 	// WebSocket endpoint
 	http.HandleFunc("/api/ws", func(w http.ResponseWriter, r *http.Request) {
 		upgrader := websocket.Upgrader{
@@ -369,7 +370,7 @@ func InitServer(log *logrus.Logger, db *gorm.DB) {
 		json.NewEncoder(w).Encode(messageTypes)
 	}))
 
-	// Stats endpoint - returns message statistics
+	// Stats endpoint - returns message statistics from cache
 	http.HandleFunc("/api/stats", enableCORS(func(w http.ResponseWriter, r *http.Request) {
 		type TopicStat struct {
 			Topic       string `json:"topic"`
@@ -393,399 +394,50 @@ func InitServer(log *logrus.Logger, db *gorm.DB) {
 			LastMessageTime   *string           `json:"lastMessageTime,omitempty"`
 			TopicStats        []TopicStat       `json:"topicStats"`
 			TopPeers          []PeerSummary     `json:"topPeers"`
+			CacheAge          int64             `json:"cacheAge"`      // Age of cache in seconds
+			CalculationTimeMs int64             `json:"calculationTimeMs"` // Time taken to calculate
 		}
 
+		// Try to get cached stats first
+		cachedStats, err := statsService.GetCachedStats()
+		if err != nil || cachedStats == nil {
+			// No cached stats available, return error
+			w.WriteHeader(http.StatusServiceUnavailable)
+			json.NewEncoder(w).Encode(map[string]string{
+				"error": "Statistics are being calculated. Please try again in a few seconds.",
+			})
+			return
+		}
+		
+		// Parse cached data
 		stats := Stats{
+			TotalMessages:     cachedStats.TotalMessages,
+			UniqueTopics:      cachedStats.UniqueTopics,
+			UniquePeers:       cachedStats.UniquePeers,
+			MessagesToday:     cachedStats.MessagesToday,
 			LatestBlockHeight: make(map[string]uint32),
 			TopicStats:        []TopicStat{},
 			TopPeers:          []PeerSummary{},
-		}
-
-		// Count messages from all tables
-		var counts []int64
-		tables := []string{"messages", "blocks", "mining_ons", "subtrees", "handshakes", "rejected_txes"}
-		
-		for _, table := range tables {
-			var count int64
-			if err := db.Table(table).Count(&count).Error; err == nil {
-				counts = append(counts, count)
-			}
+			CalculationTimeMs: cachedStats.CalculationTimeMs,
+			CacheAge:          int64(time.Since(cachedStats.CalculatedAt).Seconds()),
 		}
 		
-		// Sum all counts
-		for _, count := range counts {
-			stats.TotalMessages += count
-		}
-
-		// Count messages from last 24 hours
-		twentyFourHoursAgo := time.Now().Add(-24 * time.Hour)
-		for _, table := range tables {
-			var todayCount int64
-			if err := db.Table(table).Where("received_at > ?", twentyFourHoursAgo).Count(&todayCount).Error; err == nil {
-				stats.MessagesToday += todayCount
-			}
-		}
-
-		// Get unique topics from messages table
-		var topics []string
-		if err := db.Table("messages").Distinct("topic").Pluck("topic", &topics).Error; err == nil {
-			stats.UniqueTopics = len(topics)
-		}
-
-		// Get topic statistics - count messages per topic
-		type TopicCount struct {
-			Topic string
-			Count int64
-		}
-		var topicCounts []TopicCount
-		if err := db.Table("messages").
-			Select("topic, COUNT(*) as count").
-			Group("topic").
-			Order("count DESC").
-			Find(&topicCounts).Error; err == nil {
-			for _, tc := range topicCounts {
-				// Parse network and message type from topic format: bitcoin/{network}-{message_type}
-				network := ""
-				messageType := ""
-				if len(tc.Topic) > 8 && tc.Topic[:8] == "bitcoin/" {
-					parts := tc.Topic[8:]
-					if dashIndex := strings.Index(parts, "-"); dashIndex > 0 {
-						network = parts[:dashIndex]
-						messageType = parts[dashIndex+1:]
-					}
-				}
-				
-				stats.TopicStats = append(stats.TopicStats, TopicStat{
-					Topic:        tc.Topic,
-					MessageCount: tc.Count,
-					Network:      network,
-					MessageType:  messageType,
-				})
-			}
-		}
-
-		// Also add counts from specialized tables for better accuracy
-		// These tables store parsed messages and might have different counts
-		
-		// Count blocks by network
-		type NetworkCount struct {
-			Network string
-			Count   int64
-		}
-		var blockCounts []NetworkCount
-		if err := db.Table("blocks").
-			Select("network, COUNT(*) as count").
-			Group("network").
-			Find(&blockCounts).Error; err == nil {
-			for _, nc := range blockCounts {
-				if nc.Network != "" {
-					topic := "bitcoin/" + nc.Network + "-block"
-					// Update existing topic stat or add new one
-					found := false
-					for i, ts := range stats.TopicStats {
-						if ts.Topic == topic {
-							stats.TopicStats[i].MessageCount = nc.Count
-							found = true
-							break
-						}
-					}
-					if !found {
-						stats.TopicStats = append(stats.TopicStats, TopicStat{
-							Topic:        topic,
-							MessageCount: nc.Count,
-							Network:      nc.Network,
-							MessageType:  "block",
-						})
-					}
-				}
-			}
-		}
-
-		// Count mining messages by network
-		var miningCounts []NetworkCount
-		if err := db.Table("mining_ons").
-			Select("network, COUNT(*) as count").
-			Group("network").
-			Find(&miningCounts).Error; err == nil {
-			for _, nc := range miningCounts {
-				if nc.Network != "" {
-					topic := "bitcoin/" + nc.Network + "-miningon"
-					found := false
-					for i, ts := range stats.TopicStats {
-						if ts.Topic == topic {
-							stats.TopicStats[i].MessageCount = nc.Count
-							found = true
-							break
-						}
-					}
-					if !found {
-						stats.TopicStats = append(stats.TopicStats, TopicStat{
-							Topic:        topic,
-							MessageCount: nc.Count,
-							Network:      nc.Network,
-							MessageType:  "miningon",
-						})
-					}
-				}
-			}
-		}
-
-		// Count subtrees by network
-		var subtreeCounts []NetworkCount
-		if err := db.Table("subtrees").
-			Select("network, COUNT(*) as count").
-			Group("network").
-			Find(&subtreeCounts).Error; err == nil {
-			for _, nc := range subtreeCounts {
-				if nc.Network != "" {
-					topic := "bitcoin/" + nc.Network + "-subtree"
-					found := false
-					for i, ts := range stats.TopicStats {
-						if ts.Topic == topic {
-							stats.TopicStats[i].MessageCount = nc.Count
-							found = true
-							break
-						}
-					}
-					if !found {
-						stats.TopicStats = append(stats.TopicStats, TopicStat{
-							Topic:        topic,
-							MessageCount: nc.Count,
-							Network:      nc.Network,
-							MessageType:  "subtree",
-						})
-					}
-				}
-			}
-		}
-
-		// Count handshakes by network
-		var handshakeCounts []NetworkCount
-		if err := db.Table("handshakes").
-			Select("network, COUNT(*) as count").
-			Group("network").
-			Find(&handshakeCounts).Error; err == nil {
-			for _, nc := range handshakeCounts {
-				if nc.Network != "" {
-					topic := "bitcoin/" + nc.Network + "-handshake"
-					found := false
-					for i, ts := range stats.TopicStats {
-						if ts.Topic == topic {
-							stats.TopicStats[i].MessageCount = nc.Count
-							found = true
-							break
-						}
-					}
-					if !found {
-						stats.TopicStats = append(stats.TopicStats, TopicStat{
-							Topic:        topic,
-							MessageCount: nc.Count,
-							Network:      nc.Network,
-							MessageType:  "handshake",
-						})
-					}
-				}
-			}
-		}
-
-		// Count rejected transactions by network
-		var rejectedTxCounts []NetworkCount
-		if err := db.Table("rejected_txes").
-			Select("network, COUNT(*) as count").
-			Group("network").
-			Find(&rejectedTxCounts).Error; err == nil {
-			for _, nc := range rejectedTxCounts {
-				if nc.Network != "" {
-					topic := "bitcoin/" + nc.Network + "-rejected_tx"
-					found := false
-					for i, ts := range stats.TopicStats {
-						if ts.Topic == topic {
-							stats.TopicStats[i].MessageCount = nc.Count
-							found = true
-							break
-						}
-					}
-					if !found {
-						stats.TopicStats = append(stats.TopicStats, TopicStat{
-							Topic:        topic,
-							MessageCount: nc.Count,
-							Network:      nc.Network,
-							MessageType:  "rejected_tx",
-						})
-					}
-				}
-			}
-		}
-
-		// Sort topic stats by message count descending
-		sort.Slice(stats.TopicStats, func(i, j int) bool {
-			return stats.TopicStats[i].MessageCount > stats.TopicStats[j].MessageCount
-		})
-
-		// Get unique peers from all tables
-		peerMap := make(map[string]bool)
-		
-		// From messages table
-		var messagePeers []string
-		if err := db.Table("messages").Distinct("peer").Pluck("peer", &messagePeers).Error; err == nil {
-			for _, peer := range messagePeers {
-				if peer != "" {
-					peerMap[peer] = true
-				}
-			}
+		// Parse JSON fields
+		if cachedStats.LatestBlockHeights != "" {
+			json.Unmarshal([]byte(cachedStats.LatestBlockHeights), &stats.LatestBlockHeight)
 		}
 		
-		// From other tables that have peer_id
-		var peerIDs []string
-		for _, table := range []string{"blocks", "mining_ons", "subtrees", "handshakes", "rejected_txes"} {
-			if err := db.Table(table).Distinct("peer_id").Pluck("peer_id", &peerIDs).Error; err == nil {
-				for _, peer := range peerIDs {
-					if peer != "" {
-						peerMap[peer] = true
-					}
-				}
-			}
+		if cachedStats.TopicStats != "" {
+			json.Unmarshal([]byte(cachedStats.TopicStats), &stats.TopicStats)
 		}
 		
-		stats.UniquePeers = len(peerMap)
-
-		// Get latest block height for each network
-		var blocks []model.Block
-		if err := db.Table("blocks").
-			Select("network, MAX(height) as height").
-			Group("network").
-			Find(&blocks).Error; err == nil {
-			for _, block := range blocks {
-				if block.Network != "" {
-					stats.LatestBlockHeight[block.Network] = block.Height
-				}
-			}
-		}
-
-		// Get last message time (most recent from any table)
-		var lastTime time.Time
-		for _, table := range tables {
-			var tableTime time.Time
-			if err := db.Table(table).Select("MAX(received_at) as received_at").Row().Scan(&tableTime); err == nil {
-				if tableTime.After(lastTime) {
-					lastTime = tableTime
-				}
-			}
+		if cachedStats.TopPeers != "" {
+			json.Unmarshal([]byte(cachedStats.TopPeers), &stats.TopPeers)
 		}
 		
-		if !lastTime.IsZero() {
-			timeStr := lastTime.Format(time.RFC3339)
+		if cachedStats.LastMessageTime != nil {
+			timeStr := cachedStats.LastMessageTime.Format(time.RFC3339)
 			stats.LastMessageTime = &timeStr
-		}
-
-		// Get top 10 most active peers
-		type PeerActivity struct {
-			PeerID       string
-			MessageCount int64
-			LastSeen     string
-		}
-		var topPeersList []PeerActivity
-		
-		// Get peer activity from messages table
-		if err := db.Table("messages").
-			Select("peer as peer_id, COUNT(*) as message_count, MAX(received_at) as last_seen").
-			Where("peer != ''").
-			Group("peer").
-			Order("message_count DESC").
-			Limit(10).
-			Find(&topPeersList).Error; err == nil {
-			
-			// Also check specialized tables for these peers to get accurate counts
-			for i, peer := range topPeersList {
-				// Count messages from specialized tables
-				var additionalCount int64
-				
-				var blockCount int64
-				db.Table("blocks").Where("peer_id = ?", peer.PeerID).Count(&blockCount)
-				additionalCount += blockCount
-				
-				var miningCount int64
-				db.Table("mining_ons").Where("peer_id = ?", peer.PeerID).Count(&miningCount)
-				additionalCount += miningCount
-				
-				var subtreeCount int64
-				db.Table("subtrees").Where("peer_id = ?", peer.PeerID).Count(&subtreeCount)
-				additionalCount += subtreeCount
-				
-				var handshakeCount int64
-				db.Table("handshakes").Where("peer_id = ?", peer.PeerID).Count(&handshakeCount)
-				additionalCount += handshakeCount
-				
-				var rejectedCount int64
-				db.Table("rejected_txes").Where("peer_id = ?", peer.PeerID).Count(&rejectedCount)
-				additionalCount += rejectedCount
-				
-				topPeersList[i].MessageCount += additionalCount
-				
-				// Update last seen time from all tables
-				var lastSeenTime time.Time
-				checkLastSeen := func(table string) {
-					var tableTime time.Time
-					if err := db.Table(table).
-						Select("MAX(received_at) as received_at").
-						Where("peer_id = ?", peer.PeerID).
-						Row().Scan(&tableTime); err == nil && tableTime.After(lastSeenTime) {
-						lastSeenTime = tableTime
-					}
-				}
-				
-				checkLastSeen("blocks")
-				checkLastSeen("mining_ons")
-				checkLastSeen("subtrees")
-				checkLastSeen("handshakes")
-				checkLastSeen("rejected_txes")
-				
-				// Parse the existing last seen time - try multiple formats
-				var existingLastSeen time.Time
-				timeFormats := []string{
-					"2006-01-02 15:04:05",
-					"2006-01-02T15:04:05Z",
-					"2006-01-02T15:04:05",
-					time.RFC3339,
-				}
-				for _, format := range timeFormats {
-					if t, err := time.Parse(format, topPeersList[i].LastSeen); err == nil {
-						existingLastSeen = t
-						break
-					}
-				}
-				if lastSeenTime.After(existingLastSeen) {
-					topPeersList[i].LastSeen = lastSeenTime.Format("2006-01-02 15:04:05")
-				}
-			}
-			
-			// Sort again by total message count
-			sort.Slice(topPeersList, func(i, j int) bool {
-				return topPeersList[i].MessageCount > topPeersList[j].MessageCount
-			})
-			
-			// Convert to PeerSummary format
-			for _, peer := range topPeersList {
-				// Parse the LastSeen string and format as RFC3339
-				var lastSeenTime time.Time
-				timeFormats := []string{
-					"2006-01-02 15:04:05",
-					"2006-01-02T15:04:05Z",
-					"2006-01-02T15:04:05",
-					time.RFC3339,
-				}
-				for _, format := range timeFormats {
-					if t, err := time.Parse(format, peer.LastSeen); err == nil {
-						lastSeenTime = t
-						break
-					}
-				}
-				stats.TopPeers = append(stats.TopPeers, PeerSummary{
-					PeerID:       peer.PeerID,
-					MessageCount: peer.MessageCount,
-					LastSeen:     lastSeenTime.Format(time.RFC3339),
-				})
-			}
 		}
 
 		w.Header().Set("Content-Type", "application/json")
