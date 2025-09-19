@@ -11,7 +11,7 @@ export const BlockExplorer: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
   const [selectedNetwork, setSelectedNetwork] = useState<Network | 'all'>('mainnet');
-  const [networks] = useState<Network[]>(['mainnet', 'testnet', 'teratestnet']);
+  const [networks] = useState<Network[]>(['mainnet', 'testnet', 'teratestnet', 'tstn']);
   const [selectedBlock, setSelectedBlock] = useState<BlockHeader | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   

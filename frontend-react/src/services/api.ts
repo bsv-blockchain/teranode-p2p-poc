@@ -79,7 +79,7 @@ export class ApiService {
     } catch (error) {
       console.error('Error fetching networks:', error);
       // Return selected networks as fallback
-      return ['mainnet', 'testnet', 'teratestnet'];
+      return ['mainnet', 'testnet', 'teratestnet', 'tstn'];
     }
   }
 

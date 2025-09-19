@@ -89,8 +89,8 @@ export const Dashboard: React.FC = () => {
           ApiService.getMessageTypes(),
           ApiService.getMessageStats()
         ]);
-        // Only show mainnet, testnet, and teratestnet
-        const selectedNetworks: Network[] = ['mainnet', 'testnet', 'teratestnet'];
+        // Show mainnet, testnet, teratestnet, and tstn
+        const selectedNetworks: Network[] = ['mainnet', 'testnet', 'teratestnet', 'tstn'];
         setNetworks(selectedNetworks);
         setMessageTypes(messageTypesData);
         setStats({ 
