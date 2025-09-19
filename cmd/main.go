@@ -1,3 +1,6 @@
+//go:build postgres
+// +build postgres
+
 package main
 
 import (
@@ -15,13 +18,15 @@ import (
 	"github.com/bsv-blockchain/go-p2p"
 	"github.com/spf13/viper"
 
-	"gorm.io/driver/sqlite"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 func main() {
 	ctx := context.Background()
 	log := logrus.New()
+	log.SetLevel(logrus.InfoLevel)
 
 	// Initialize Viper
 	viper.SetConfigName("config")
@@ -34,38 +39,151 @@ func main() {
 		panic(fmt.Errorf("fatal error reading config file: %w", err))
 	}
 
-	// Load DB path from config
-	databasePath := viper.GetString("database.path")
-	if databasePath == "" {
-		log.Fatalf("database.path not set in config file")
+	// Load PostgreSQL configuration
+	dbHost := viper.GetString("database.host")
+	dbPort := viper.GetInt("database.port")
+	dbUser := viper.GetString("database.user")
+	dbPassword := viper.GetString("database.password")
+	dbName := viper.GetString("database.name")
+	dbSSLMode := viper.GetString("database.sslmode")
+
+	if dbHost == "" {
+		dbHost = "localhost"
+	}
+	if dbPort == 0 {
+		dbPort = 5432
+	}
+	if dbSSLMode == "" {
+		dbSSLMode = "disable"
 	}
 
-	// Initialize SQLite DB with GORM
-	// Enable WAL mode and optimize for concurrent reads
-	dsn := fmt.Sprintf("%s?_journal_mode=WAL&_busy_timeout=5000&_synchronous=NORMAL&cache=shared", databasePath)
-	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	// Build PostgreSQL connection string
+	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s TimeZone=UTC",
+		dbHost, dbPort, dbUser, dbPassword, dbName, dbSSLMode)
+
+	// Connect to PostgreSQL with optimized settings
+	db, err := gorm.Open(postgres.New(postgres.Config{
+		DSN:                  dsn,
+		PreferSimpleProtocol: false, // Enable prepared statement cache
+	}), &gorm.Config{
+		Logger:                 logger.Default.LogMode(logger.Silent),
+		PrepareStmt:            true, // Use prepared statements
+		SkipDefaultTransaction: true, // Skip default transaction for better performance
+	})
+
 	if err != nil {
-		log.Fatalf("failed to connect to database [%s]: %v", databasePath, err)
+		log.Fatalf("failed to connect to PostgreSQL database: %v", err)
 	}
-	
-	// Configure connection pool for SQLite
+
+	// Configure connection pool for PostgreSQL
 	sqlDB, err := db.DB()
 	if err != nil {
 		log.Fatalf("failed to get underlying SQL database: %v", err)
 	}
-	
-	// Set max open connections to 1 for SQLite (prevents database locked errors)
-	// WAL mode allows multiple readers even with single writer
-	sqlDB.SetMaxOpenConns(1)
-	// Set max idle connections
-	sqlDB.SetMaxIdleConns(1)
-	// Set max lifetime of a connection
-	sqlDB.SetConnMaxLifetime(time.Hour)
-	// Auto-migrate all schemas
-	err = model.MigrateAll(db)
-	if err != nil {
-		log.Fatalf("failed to migrate database: %v", err)
+
+	// Optimized connection pool settings for PostgreSQL
+	sqlDB.SetMaxOpenConns(50)        // PostgreSQL can handle many connections
+	sqlDB.SetMaxIdleConns(25)        // Keep connections ready
+	sqlDB.SetConnMaxLifetime(5 * time.Minute)
+	sqlDB.SetConnMaxIdleTime(5 * time.Minute)
+
+	// Test the connection
+	if err := sqlDB.Ping(); err != nil {
+		log.Fatalf("failed to ping PostgreSQL database: %v", err)
 	}
+
+	log.Info("Successfully connected to PostgreSQL database")
+
+	// Check if tables exist and run GORM auto-migration if needed
+	log.Info("Checking database schema...")
+
+	// Use GORM auto-migration for PostgreSQL models
+	if err := db.AutoMigrate(
+		&model.BlockPG{},
+		&model.BlockHeaderPG{},
+		&model.HandshakePG{},
+		&model.MiningOnPG{},
+		&model.SubtreePG{},
+		&model.RejectedTxPG{},
+		&model.BestBlockRequestPG{},
+		&model.StatsCachePG{},
+	); err != nil {
+		log.Warnf("AutoMigrate warning: %v", err)
+	} else {
+		log.Info("Database schema check completed")
+	}
+
+	// Create partitions for current and next months if they don't exist
+	log.Info("Creating database partitions for current month...")
+	currentTime := time.Now()
+	partitionTables := []string{"blocks", "block_headers", "handshakes", "mining_ons", "subtrees", "rejected_txes"}
+
+	for _, tableName := range partitionTables {
+		// Create partition for current month
+		currentMonth := currentTime.Format("2006_01")
+		partitionName := fmt.Sprintf("%s_%s", tableName, currentMonth)
+		startDate := time.Date(currentTime.Year(), currentTime.Month(), 1, 0, 0, 0, 0, time.UTC)
+		endDate := startDate.AddDate(0, 1, 0)
+
+		createPartitionSQL := fmt.Sprintf(`
+			DO $$
+			BEGIN
+				IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = '%s') THEN
+					CREATE TABLE %s PARTITION OF %s
+					FOR VALUES FROM ('%s') TO ('%s');
+				END IF;
+			END $$;
+		`, partitionName, partitionName, tableName,
+			startDate.Format("2006-01-02"), endDate.Format("2006-01-02"))
+
+		if err := db.Exec(createPartitionSQL).Error; err != nil {
+			log.Warnf("Failed to create partition %s: %v", partitionName, err)
+		} else {
+			log.Infof("Ensured partition %s exists", partitionName)
+		}
+
+		// Also create partition for next month
+		nextMonth := currentTime.AddDate(0, 1, 0)
+		nextMonthStr := nextMonth.Format("2006_01")
+		nextPartitionName := fmt.Sprintf("%s_%s", tableName, nextMonthStr)
+		nextStartDate := time.Date(nextMonth.Year(), nextMonth.Month(), 1, 0, 0, 0, 0, time.UTC)
+		nextEndDate := nextStartDate.AddDate(0, 1, 0)
+
+		createNextPartitionSQL := fmt.Sprintf(`
+			DO $$
+			BEGIN
+				IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = '%s') THEN
+					CREATE TABLE %s PARTITION OF %s
+					FOR VALUES FROM ('%s') TO ('%s');
+				END IF;
+			END $$;
+		`, nextPartitionName, nextPartitionName, tableName,
+			nextStartDate.Format("2006-01-02"), nextEndDate.Format("2006-01-02"))
+
+		if err := db.Exec(createNextPartitionSQL).Error; err != nil {
+			log.Warnf("Failed to create next partition %s: %v", nextPartitionName, err)
+		}
+	}
+
+	// Create unique indexes on materialized views for concurrent refresh
+	log.Info("Creating unique indexes for materialized views...")
+
+	// For network_activity_summary, we need a unique combination
+	db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_network_activity_unique
+		ON network_activity_summary(network, source_table)`)
+
+	// For peer_activity_summary, we need a unique combination
+	db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_peer_activity_unique
+		ON peer_activity_summary(peer_id, network, message_type)`)
+
+	// Refresh the materialized views initially (non-concurrent first time)
+	db.Exec(`REFRESH MATERIALIZED VIEW IF EXISTS network_activity_summary`)
+	db.Exec(`REFRESH MATERIALIZED VIEW IF EXISTS peer_activity_summary`)
+	db.Exec(`REFRESH MATERIALIZED VIEW IF EXISTS latest_block_heights`)
+
+	// Initialize batch insert service
+	batchService := service.NewBatchInsertService(db, log, 1000, 5*time.Second)
+	defer batchService.Stop()
 
 	// Load P2P settings from config
 	bootstrapAddresses := viper.GetStringSlice("p2p.bootstrap_addresses")
@@ -75,6 +193,7 @@ func main() {
 	listenAddresses := viper.GetStringSlice("p2p.listen_addresses")
 	advertise := viper.GetBool("p2p.advertise")
 	usePrivateDHT := viper.GetBool("p2p.use_private_dht")
+
 	// Get networks from config and generate topics
 	var topics []string
 	networks := viper.GetStringSlice("networks")
@@ -109,6 +228,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	// Set up message handlers with batch processing
 	for _, topic := range topics {
 		topicCopy := topic // capture range variable
 		err = node.SetTopicHandler(ctx, topicCopy, func(ctx context.Context, data []byte, peer string) {
@@ -116,39 +237,28 @@ func main() {
 			parsedMsg, parseErr := parser.ParseMessage(topicCopy, data)
 
 			if parseErr != nil {
-				// If parsing fails, store as generic message
 				log.Warnf("Failed to parse message for topic %s: %v", topicCopy, parseErr)
-				msg := model.Message{
-					Topic:      topicCopy,
-					Data:       string(data),
-					Peer:       peer,
-					ReceivedAt: time.Now(),
-				}
-				if err := db.Create(&msg).Error; err != nil {
-					log.Errorf("Failed to store generic message for topic %s: %v", topicCopy, err)
-				} else {
-					websocket.BroadcastMessage(msg)
-				}
 				return
 			}
 
 			// Capture timestamp once for consistent storage
 			receivedAt := time.Now()
 
-			// Store parsed message in appropriate table
-			var storeErr error
+			// Store parsed message using batch insert service
 			switch parsedMsg.Type {
 			case parser.TypeBestBlock:
 				bbMsg := parsedMsg.Data.(p2p.BestBlockRequestMessage)
-				storeErr = db.Create(&model.BestBlockRequest{
+				if err := batchService.AddBestBlockRequest(model.BestBlockRequestPG{
 					Network:    parsedMsg.Network,
 					PeerID:     bbMsg.PeerID,
 					ReceivedAt: receivedAt,
-				}).Error
+				}); err != nil {
+					log.Errorf("Failed to add best block request to batch: %v", err)
+				}
 
 			case parser.TypeBlock:
 				blockMsg := parsedMsg.Data.(p2p.BlockMessage)
-				storeErr = db.Create(&model.Block{
+				block := model.BlockPG{
 					Network:    parsedMsg.Network,
 					Hash:       blockMsg.Hash,
 					Height:     blockMsg.Height,
@@ -156,29 +266,46 @@ func main() {
 					PeerID:     blockMsg.PeerID,
 					Header:     blockMsg.Header,
 					ReceivedAt: receivedAt,
-				}).Error
+				}
+
+				if err := batchService.AddBlock(block); err != nil {
+					log.Errorf("Failed to add block to batch: %v", err)
+				}
 
 				// Parse and store block header if available
-				if storeErr == nil && blockMsg.Header != "" {
+				if blockMsg.Header != "" {
 					blockHeader, parseErr := parser.ParseBlockHeader(blockMsg.Header, parsedMsg.Network, receivedAt)
 					if parseErr != nil {
 						log.Errorf("Failed to parse block header: %v", parseErr)
 					} else {
-						// Update height from the block message
-						blockHeader.Height = blockMsg.Height
-						blockHeader.Hash = blockMsg.Hash
+						// Convert to PostgreSQL model
+						headerPG := model.BlockHeaderPG{
+							Network:        blockHeader.Network,
+							Hash:           blockMsg.Hash,
+							Height:         blockMsg.Height,
+							Version:        blockHeader.Version,
+							PreviousHash:   blockHeader.PreviousHash,
+							MerkleRoot:     blockHeader.MerkleRoot,
+							Timestamp:      blockHeader.Timestamp,
+							Bits:           blockHeader.Bits,
+							Nonce:          uint64(blockHeader.Nonce),
+							ReceivedAt:     receivedAt,
+							CoinbaseValue:  blockHeader.CoinbaseValue,
+							CoinbaseScript: blockHeader.CoinbaseScript,
+							MinerAddress:   blockHeader.MinerAddress,
+							CoinbaseTxID:   blockHeader.CoinbaseTxID,
+							CoinbaseText:   blockHeader.CoinbaseText,
+						}
 
-						if err := db.Create(blockHeader).Error; err != nil {
-							log.Errorf("Failed to store block header: %v", err)
-						} else {
-							log.Infof("Stored block header for block %s at height %d", blockMsg.Hash, blockMsg.Height)
+						if err := batchService.AddBlockHeader(headerPG); err != nil {
+							log.Errorf("Failed to add block header to batch: %v", err)
 						}
 					}
 				}
 
 			case parser.TypeMiningOn:
 				miningMsg := parsedMsg.Data.(p2p.MiningOnMessage)
-				storeErr = db.Create(&model.MiningOn{
+				if err := batchService.AddMiningOn(model.MiningOnPG{
 					Network:      parsedMsg.Network,
 					Hash:         miningMsg.Hash,
 					PreviousHash: miningMsg.PreviousHash,
@@ -189,21 +316,25 @@ func main() {
 					SizeInBytes:  miningMsg.SizeInBytes,
 					TxCount:      miningMsg.TxCount,
 					ReceivedAt:   receivedAt,
-				}).Error
+				}); err != nil {
+					log.Errorf("Failed to add mining message to batch: %v", err)
+				}
 
 			case parser.TypeSubtree:
 				subtreeMsg := parsedMsg.Data.(p2p.SubtreeMessage)
-				storeErr = db.Create(&model.Subtree{
+				if err := batchService.AddSubtree(model.SubtreePG{
 					Network:    parsedMsg.Network,
 					Hash:       subtreeMsg.Hash,
 					DataHubURL: subtreeMsg.DataHubURL,
 					PeerID:     subtreeMsg.PeerID,
 					ReceivedAt: receivedAt,
-				}).Error
+				}); err != nil {
+					log.Errorf("Failed to add subtree to batch: %v", err)
+				}
 
 			case parser.TypeHandshake:
 				handshakeMsg := parsedMsg.Data.(p2p.HandshakeMessage)
-				storeErr = db.Create(&model.Handshake{
+				if err := batchService.AddHandshake(model.HandshakePG{
 					Network:    parsedMsg.Network,
 					Type:       string(handshakeMsg.Type),
 					PeerID:     handshakeMsg.PeerID,
@@ -211,80 +342,58 @@ func main() {
 					BestHash:   handshakeMsg.BestHash,
 					DataHubURL: handshakeMsg.DataHubURL,
 					UserAgent:  handshakeMsg.UserAgent,
-					Services:   handshakeMsg.Services,
+					Services:   uint64(handshakeMsg.Services),
 					ReceivedAt: receivedAt,
-				}).Error
+				}); err != nil {
+					log.Errorf("Failed to add handshake to batch: %v", err)
+				}
 
 			case parser.TypeRejectedTx:
 				rejectedMsg := parsedMsg.Data.(p2p.RejectedTxMessage)
-				storeErr = db.Create(&model.RejectedTx{
+				if err := batchService.AddRejectedTx(model.RejectedTxPG{
 					Network:    parsedMsg.Network,
 					TxID:       rejectedMsg.TxID,
 					Reason:     rejectedMsg.Reason,
 					PeerID:     rejectedMsg.PeerID,
 					ReceivedAt: receivedAt,
-				}).Error
+				}); err != nil {
+					log.Errorf("Failed to add rejected tx to batch: %v", err)
+				}
 			}
 
-			if storeErr != nil {
-				log.Errorf("Failed to store %s message for topic %s: %v", parsedMsg.Type, topicCopy, storeErr)
-			} else {
-				log.Infof("Stored %s message for topic %s from %s", parsedMsg.Type, topicCopy, peer)
-				// Also store in generic message table for compatibility
-				msg := model.Message{
-					Topic:      topicCopy,
-					Data:       string(data),
-					Peer:       peer,
-					ReceivedAt: receivedAt,
-				}
-				db.Create(&msg) // Ignore error for generic storage
-				websocket.BroadcastMessage(msg)
-			}
+			// Broadcast to WebSocket clients (lightweight operation)
+			websocket.BroadcastMessage(model.Message{
+				Topic:      topicCopy,
+				Data:       string(data),
+				Peer:       peer,
+				ReceivedAt: receivedAt,
+			})
 		})
 		if err != nil {
 			panic(err)
 		}
 	}
 
-	// Initialize stats service first
-	statsService := service.NewStatsService(db, log)
-	
+	// Initialize stats service with PostgreSQL optimizations
+	statsService := service.NewStatsServicePostgres(db, log)
+
 	// Start HTTP server for querying messages
 	go http.InitServer(log, db, statsService)
 
-	// Initialize coinbase service
-	coinbaseService := service.NewCoinbaseService(db, log)
-	
 	// Calculate stats once on startup
 	go func() {
 		// Small delay to let some messages accumulate
-		time.Sleep(5 * time.Second)
+		time.Sleep(10 * time.Second)
 		if err := statsService.CalculateStats(); err != nil {
 			log.Errorf("Failed to calculate initial stats: %v", err)
 		}
 	}()
-	
-	// Start background processing of coinbase data
-	go func() {
-		ticker := time.NewTicker(5 * time.Minute)
-		defer ticker.Stop()
-		
-		// Process once on startup
-		coinbaseService.ProcessPendingBlocks()
-		
-		for {
-			select {
-			case <-ticker.C:
-				coinbaseService.ProcessPendingBlocks()
-			}
-		}
-	}()
-	
+
 	// Start background stats calculation (every minute)
 	go func() {
 		ticker := time.NewTicker(1 * time.Minute)
 		defer ticker.Stop()
-		
+
 		for {
 			select {
 			case <-ticker.C:
@@ -295,6 +404,25 @@ func main() {
 		}
 	}()
 
+	// Refresh materialized views periodically (every 5 minutes)
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				log.Info("Refreshing materialized views...")
+				if err := db.Exec("SELECT refresh_all_materialized_views()").Error; err != nil {
+					log.Errorf("Failed to refresh materialized views: %v", err)
+				} else {
+					log.Info("Materialized views refreshed successfully")
+				}
+			}
+		}
+	}()
+
+	// Monitor connected peers
 	go func() {
 		ticker := time.NewTicker(2 * time.Minute)
 		defer ticker.Stop()
@@ -305,12 +433,26 @@ func main() {
 			}
 		}
 	}()
-	select {}
-}
 
-// GetMessagesByTopic returns all messages for a given topic
-func GetMessagesByTopic(db *gorm.DB, topic string) ([]model.Message, error) {
-	var messages []model.Message
-	err := db.Where("topic = ?", topic).Order("received_at asc").Find(&messages).Error
-	return messages, err
+	// Create monthly partitions proactively
+	go func() {
+		ticker := time.NewTicker(24 * time.Hour)
+		defer ticker.Stop()
+
+		// Run once on startup
+		if err := db.Exec("SELECT create_monthly_partitions()").Error; err != nil {
+			log.Errorf("Failed to create monthly partitions: %v", err)
+		}
+
+		for {
+			select {
+			case <-ticker.C:
+				if err := db.Exec("SELECT create_monthly_partitions()").Error; err != nil {
+					log.Errorf("Failed to create monthly partitions: %v", err)
+				}
+			}
+		}
+	}()
+
+	select {}
 }

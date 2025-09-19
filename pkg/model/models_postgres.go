@@ -1,8 +1,9 @@
 package model
 
 import (
-	"gorm.io/gorm"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 // PostgreSQL optimized models with batch insert support
@@ -75,8 +76,8 @@ type MiningOnPG struct {
 	PeerID       string    `gorm:"type:varchar(100);not null;index:idx_miningons_peer_received" json:"PeerID"`
 	Height       uint32    `gorm:"not null" json:"Height"`
 	Miner        string    `gorm:"type:varchar(100);index:idx_miningons_miner" json:"Miner"`
-	SizeInBytes  uint32    `gorm:"not null" json:"SizeInBytes"`
-	TxCount      uint32    `gorm:"not null" json:"TxCount"`
+	SizeInBytes  uint64    `gorm:"not null" json:"SizeInBytes"`
+	TxCount      uint64    `gorm:"not null" json:"TxCount"`
 	ReceivedAt   time.Time `gorm:"not null;default:CURRENT_TIMESTAMP" json:"ReceivedAt"`
 }
 
@@ -126,19 +127,19 @@ func (BestBlockRequestPG) TableName() string {
 
 // StatsCachePG for storing pre-calculated statistics (PostgreSQL optimized)
 type StatsCachePG struct {
-	ID                  uint64    `gorm:"primaryKey;autoIncrement" json:"id"`
-	CalculatedAt        time.Time `gorm:"not null;index:idx_stats_cache_calculated" json:"calculated_at"`
-	TotalMessages       int64     `gorm:"not null;default:0" json:"total_messages"`
-	MessagesToday       int64     `gorm:"not null;default:0" json:"messages_today"`
-	UniqueTopics        int       `gorm:"not null;default:0" json:"unique_topics"`
-	UniquePeers         int       `gorm:"not null;default:0" json:"unique_peers"`
-	MessageCountByTable string    `gorm:"type:jsonb" json:"message_count_by_table"`
-	TopicStats          string    `gorm:"type:jsonb" json:"topic_stats"`
-	NetworkActivity     string    `gorm:"type:jsonb" json:"network_activity"`
-	LatestBlockHeights  string    `gorm:"type:jsonb" json:"latest_block_heights"`
-	TopPeers            string    `gorm:"type:jsonb" json:"top_peers"`
+	ID                  uint64     `gorm:"primaryKey;autoIncrement" json:"id"`
+	CalculatedAt        time.Time  `gorm:"not null;index:idx_stats_cache_calculated" json:"calculated_at"`
+	TotalMessages       int64      `gorm:"not null;default:0" json:"total_messages"`
+	MessagesToday       int64      `gorm:"not null;default:0" json:"messages_today"`
+	UniqueTopics        int        `gorm:"not null;default:0" json:"unique_topics"`
+	UniquePeers         int        `gorm:"not null;default:0" json:"unique_peers"`
+	MessageCountByTable string     `gorm:"type:jsonb" json:"message_count_by_table"`
+	TopicStats          string     `gorm:"type:jsonb" json:"topic_stats"`
+	NetworkActivity     string     `gorm:"type:jsonb" json:"network_activity"`
+	LatestBlockHeights  string     `gorm:"type:jsonb" json:"latest_block_heights"`
+	TopPeers            string     `gorm:"type:jsonb" json:"top_peers"`
 	LastMessageTime     *time.Time `json:"last_message_time"`
-	CalculationTimeMs   int64     `gorm:"not null;default:0" json:"calculation_time_ms"`
+	CalculationTimeMs   int64      `gorm:"not null;default:0" json:"calculation_time_ms"`
 }
 
 func (StatsCachePG) TableName() string {
