@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: teranode-config
+  namespace: teranode
+data:
+  config.yaml: |
+    # PostgreSQL optimized configuration for teranode-p2p
+    p2p:
+      bootstrap_addresses:
+        - "/dns4/teranode-bootstrap.bsvb.tech/tcp/9901/p2p/12D3KooWESmhNAN8s6NPdGNvJH3zJ4wMKDxapXKNUe2DzkAwKYqK"
+        - "/dns4/teranode-bootstrap-stage.bsvb.tech/tcp/9901/p2p/12D3KooWJ6kQHAR65xkA34NABsNVAJyVxPWh8JUSo1vtZsTyw4GD"
+      shared_key: "285b49e6d910726a70f205086c39cbac6d8dcc47839053a21b1f614773bbc137"
+      dht_protocol_id: "/teranode"
+      port: 9901
+      listen_addresses:
+        - "0.0.0.0"  # Listen on all interfaces in container
+      advertise: true
+      use_private_dht: true
+
+    # PostgreSQL database configuration
+    database:
+      host: "postgres"  # Name of the PostgreSQL service in Kubernetes
+      port: 5432
+      user: "teranode"
+      password: "teranode"
+      name: "teranode_p2p"
+      sslmode: "disable"  # Set to "require" for production
+
+    # Networks to subscribe to (system generates all topic combinations)
+    networks:
+      - "mainnet"
+      - "testnet"
+      - "regtest"
+      - "stn"
+      - "teratestnet"
+      - "tstn"
+
+    # Topics to subscribe to
+    topics:
+      - "bitcoin/block"
+      - "bitcoin/subtree"
+      - "bitcoin/handshake"
+      - "bitcoin/rejected_tx"
+      - "bitcoin/node_status"

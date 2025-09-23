@@ -1,0 +1,34 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: teranode-p2p
+  namespace: teranode
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    # Enable WebSocket support
+    nginx.ingress.kubernetes.io/websocket-services: "teranode-p2p"
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection "upgrade";
+spec:
+  ingressClassName: nginx  # Change based on your ingress controller
+  rules:
+  - host: teranode.example.com  # Change to your domain
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: teranode-p2p
+            port:
+              number: 80
+  # Uncomment for TLS/HTTPS
+  # tls:
+  # - hosts:
+  #   - teranode.example.com
+  #   secretName: teranode-tls
