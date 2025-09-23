@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"github.com/bsv-blockchain/teranode-p2p-poc/pkg/model"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"gorm.io/gorm"
 	"sort"
-	"strings"
 	"time"
 )
 
@@ -49,7 +49,7 @@ func (s *StatsService) CalculateStats() error {
 	}
 	
 	// Count messages from all tables
-	tables := []string{"messages", "blocks", "mining_ons", "subtrees", "handshakes", "rejected_txes", "best_block_requests"}
+	tables := []string{"blocks", "mining_ons", "subtrees", "handshakes", "rejected_txes", "best_block_requests"}
 	tableCounts := make(map[string]int64)
 	
 	for _, table := range tables {
@@ -74,11 +74,10 @@ func (s *StatsService) CalculateStats() error {
 		}
 	}
 	
-	// Get unique topics from messages table
-	var topics []string
-	if err := s.db.Table("messages").Distinct("topic").Pluck("topic", &topics).Error; err == nil {
-		stats.UniqueTopics = len(topics)
-	}
+	// Get unique topics - PostgreSQL doesn't have a messages table, topics are handled via networks
+	// Count unique networks instead
+	networks := viper.GetStringSlice("networks")
+	stats.UniqueTopics = len(networks)
 	
 	// Calculate topic statistics
 	topicStats := s.calculateTopicStats()
@@ -133,38 +132,10 @@ func (s *StatsService) CalculateStats() error {
 // calculateTopicStats calculates message counts by topic
 func (s *StatsService) calculateTopicStats() []TopicStat {
 	var topicStats []TopicStat
-	
-	// Get topic counts from messages table
-	type TopicCount struct {
-		Topic string
-		Count int64
-	}
-	var topicCounts []TopicCount
-	
-	if err := s.db.Table("messages").
-		Select("topic, COUNT(*) as count").
-		Group("topic").
-		Find(&topicCounts).Error; err == nil {
-		for _, tc := range topicCounts {
-			network := ""
-			messageType := ""
-			if len(tc.Topic) > 8 && tc.Topic[:8] == "bitcoin/" {
-				parts := tc.Topic[8:]
-				if dashIndex := strings.Index(parts, "-"); dashIndex > 0 {
-					network = parts[:dashIndex]
-					messageType = parts[dashIndex+1:]
-				}
-			}
-			
-			topicStats = append(topicStats, TopicStat{
-				Topic:        tc.Topic,
-				MessageCount: tc.Count,
-				Network:      network,
-				MessageType:  messageType,
-			})
-		}
-	}
-	
+
+	// Since we don't have a messages table anymore, skip the old logic
+	// The specialized tables will handle all the stats
+
 	// Add counts from specialized tables
 	s.addSpecializedTableCounts(&topicStats)
 	
@@ -357,13 +328,6 @@ func (s *StatsService) getTopPeers() []PeerSummary {
 	// Complex query to get peer activity across all tables
 	query := `
 		WITH peer_activity AS (
-			SELECT peer as peer_id, COUNT(*) as message_count, MAX(received_at) as last_seen
-			FROM messages
-			WHERE peer != ''
-			GROUP BY peer
-			
-			UNION ALL
-			
 			SELECT peer_id, COUNT(*) as message_count, MAX(received_at) as last_seen
 			FROM blocks
 			WHERE peer_id != ''
@@ -447,17 +411,20 @@ func (s *StatsService) getTopPeers() []PeerSummary {
 // getLastMessageTime gets the most recent message time across all tables
 func (s *StatsService) getLastMessageTime() time.Time {
 	var lastTime time.Time
-	tables := []string{"messages", "blocks", "mining_ons", "subtrees", "handshakes", "rejected_txes", "best_block_requests"}
-	
+	tables := []string{"blocks", "mining_ons", "subtrees", "handshakes", "rejected_txes", "best_block_requests"}
+
 	for _, table := range tables {
-		var tableTime time.Time
-		if err := s.db.Table(table).Select("MAX(received_at) as received_at").Row().Scan(&tableTime); err == nil {
-			if tableTime.After(lastTime) {
-				lastTime = tableTime
+		var tableTime *time.Time
+		row := s.db.Table(table).Select("MAX(received_at) as received_at").Row()
+		if row != nil {
+			if err := row.Scan(&tableTime); err == nil && tableTime != nil {
+				if tableTime.After(lastTime) {
+					lastTime = *tableTime
+				}
 			}
 		}
 	}
-	
+
 	return lastTime
 }
 

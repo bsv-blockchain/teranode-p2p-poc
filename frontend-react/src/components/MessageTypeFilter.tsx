@@ -34,10 +34,15 @@ const typeInfo: Record<MessageType | 'all', { label: string; icon: string; descr
     icon: '🤝', 
     description: 'Peer connection handshakes' 
   },
-  rejected_tx: { 
-    label: 'Rejected TX', 
-    icon: '❌', 
-    description: 'Rejected transaction notifications' 
+  rejected_tx: {
+    label: 'Rejected TX',
+    icon: '❌',
+    description: 'Rejected transaction notifications'
+  },
+  node_status: {
+    label: 'Node Status',
+    icon: '📡',
+    description: 'Node status updates'
   }
 };
 

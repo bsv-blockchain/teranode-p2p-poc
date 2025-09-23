@@ -183,9 +183,36 @@ export interface RejectedTx {
   Topic?: string;  // For WebSocket messages
 }
 
+export interface NodeStatus {
+  ID: number;
+  Network: string;
+  Type: string;
+  BaseURL: string;
+  PeerID: string;  // Peer ID from within the message data
+  sentFromPeer?: string;  // Peer who sent this message to us
+  Version: string;
+  CommitHash: string;
+  BestBlockHash: string;
+  BestHeight: number;
+  BlockAssemblyDetails?: any;  // JSON object
+  FSMState: string;
+  StartTime: number;
+  Uptime: number;
+  ClientName: string;
+  MinerName: string;
+  ListenMode: string;
+  ChainWork: string;
+  SyncPeerID?: string;
+  SyncPeerHeight?: number;
+  SyncPeerBlockHash?: string;
+  SyncConnectedAt?: number;
+  ReceivedAt: string;
+  Topic?: string;  // For WebSocket messages
+}
+
 // Temporarily removing 'miningon' from visible message types
-// export type MessageType = 'block' | 'miningon' | 'subtree' | 'handshake' | 'rejected_tx';
-export type MessageType = 'block' | 'subtree' | 'handshake' | 'rejected_tx';
+// export type MessageType = 'block' | 'miningon' | 'subtree' | 'handshake' | 'rejected_tx' | 'node_status';
+export type MessageType = 'block' | 'subtree' | 'handshake' | 'rejected_tx' | 'node_status';
 export type Network = 'mainnet' | 'testnet' | 'regtest' | 'stn' | 'teratestnet' | 'tstn';
 
 export interface DashboardFilters {

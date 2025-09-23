@@ -1,0 +1,105 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: teranode-p2p
+  namespace: teranode
+  labels:
+    app: teranode-p2p
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: teranode-p2p
+  template:
+    metadata:
+      labels:
+        app: teranode-p2p
+    spec:
+      initContainers:
+      # Wait for PostgreSQL to be ready
+      - name: wait-for-postgres
+        image: busybox:1.35
+        command: ['sh', '-c', 'until nc -z postgres 5432; do echo waiting for postgres; sleep 2; done;']
+      containers:
+      - name: teranode-p2p
+        image: teranode-p2p:latest  # Change this to your registry/image:tag
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        - containerPort: 9901
+          name: p2p
+          protocol: TCP
+        env:
+        - name: TERANODE_P2P_DATABASE_HOST
+          value: "postgres"
+        - name: TERANODE_P2P_DATABASE_PORT
+          value: "5432"
+        - name: TERANODE_P2P_DATABASE_USER
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: postgres-user
+        - name: TERANODE_P2P_DATABASE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: postgres-password
+        - name: TERANODE_P2P_DATABASE_NAME
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: postgres-db
+        volumeMounts:
+        - name: config
+          mountPath: /config.yaml
+          subPath: config.yaml
+        resources:
+          requests:
+            cpu: 500m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+        livenessProbe:
+          httpGet:
+            path: /api/stats
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /api/stats
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      volumes:
+      - name: config
+        configMap:
+          name: teranode-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: teranode-p2p
+  namespace: teranode
+  labels:
+    app: teranode-p2p
+spec:
+  type: LoadBalancer  # Change to ClusterIP if using Ingress
+  ports:
+  - port: 80
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  - port: 9901
+    targetPort: 9901
+    protocol: TCP
+    name: p2p
+  selector:
+    app: teranode-p2p
