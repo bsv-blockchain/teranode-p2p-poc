@@ -18,6 +18,7 @@ const (
 	TypeSubtree    MessageType = "subtree"
 	TypeHandshake  MessageType = "handshake"
 	TypeRejectedTx MessageType = "rejected_tx"
+	TypeNodeStatus MessageType = "node_status"
 )
 
 // ParsedMessage represents a parsed message with its type and data
@@ -30,19 +31,29 @@ type ParsedMessage struct {
 // ParseMessage parses a message based on the topic and returns the typed message
 func ParseMessage(topic string, data []byte) (*ParsedMessage, error) {
 	// Extract network and message type from topic
-	// Format: bitcoin/{network}-{message_type}
+	// Format: bitcoin/{network}-{message_type} or bitcoin/{network}-node_status
 	parts := strings.Split(topic, "/")
 	if len(parts) != 2 || parts[0] != "bitcoin" {
 		return nil, fmt.Errorf("invalid topic format: %s", topic)
 	}
 
-	networkParts := strings.Split(parts[1], "-")
-	if len(networkParts) != 2 {
-		return nil, fmt.Errorf("invalid network-type format: %s", parts[1])
-	}
+	var network string
+	var messageType string
 
-	network := networkParts[0]
-	messageType := networkParts[1]
+	// Check if it's a node_status message (special case without network prefix)
+	if parts[1] == "node_status" {
+		network = "all" // node_status applies to all networks
+		messageType = "node_status"
+	} else {
+		networkParts := strings.Split(parts[1], "-")
+		if len(networkParts) < 2 {
+			return nil, fmt.Errorf("invalid network-type format: %s", parts[1])
+		}
+
+		network = networkParts[0]
+		// Handle multi-part message types like node_status
+		messageType = strings.Join(networkParts[1:], "_")
+	}
 
 	result := &ParsedMessage{
 		Network: network,
@@ -98,6 +109,14 @@ func ParseMessage(topic string, data []byte) (*ParsedMessage, error) {
 		}
 		result.Data = msg
 
+	case "node_status":
+		result.Type = TypeNodeStatus
+		var msg NodeStatusMessage
+		if err := json.Unmarshal(data, &msg); err != nil {
+			return nil, fmt.Errorf("failed to parse node_status message: %w", err)
+		}
+		result.Data = msg
+
 	default:
 		return nil, fmt.Errorf("unknown message type: %s", messageType)
 	}
@@ -114,8 +133,8 @@ func GetNetworks() []string {
 // GetMessageTypes returns all supported message types
 func GetMessageTypes() []string {
 	// Temporarily removing "miningon" from visible message types
-	// return []string{"bestblock", "block", "miningon", "subtree", "handshake", "rejected_tx"}
-	return []string{"bestblock", "block", "subtree", "handshake", "rejected_tx"}
+	// return []string{"bestblock", "block", "miningon", "subtree", "handshake", "rejected_tx", "node_status"}
+	return []string{"bestblock", "block", "subtree", "handshake", "rejected_tx", "node_status"}
 }
 
 // GenerateTopics generates all topic combinations for the given networks

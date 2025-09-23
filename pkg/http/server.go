@@ -288,6 +288,41 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 		json.NewEncoder(w).Encode(rejectedTxs)
 	}))
 
+	// Node statuses endpoint
+	http.HandleFunc("/api/node-statuses", enableCORS(func(w http.ResponseWriter, r *http.Request) {
+		network := r.URL.Query().Get("network")
+		peerID := r.URL.Query().Get("peer_id")
+		limit := 100
+		offset := 0
+
+		if l := r.URL.Query().Get("limit"); l != "" {
+			if n, err := strconv.Atoi(l); err == nil && n > 0 && n <= 500 {
+				limit = n
+			}
+		}
+		if o := r.URL.Query().Get("offset"); o != "" {
+			if n, err := strconv.Atoi(o); err == nil && n >= 0 {
+				offset = n
+			}
+		}
+
+		var nodeStatuses []model.NodeStatusPG
+		query := db.Order("received_at desc").Limit(limit).Offset(offset)
+		if network != "" {
+			query = query.Where("network = ?", network)
+		}
+		if peerID != "" {
+			query = query.Where("peer_id = ?", peerID)
+		}
+		if err := query.Find(&nodeStatuses).Error; err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(nodeStatuses)
+	}))
+
 	// Block headers endpoint
 	http.HandleFunc("/api/block-headers", enableCORS(func(w http.ResponseWriter, r *http.Request) {
 		network := r.URL.Query().Get("network")

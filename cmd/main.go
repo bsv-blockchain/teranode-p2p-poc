@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/bsv-blockchain/teranode-p2p-poc/pkg/http"
 	"github.com/bsv-blockchain/teranode-p2p-poc/pkg/model"
@@ -97,6 +98,40 @@ func main() {
 	// Check if tables exist and run GORM auto-migration if needed
 	log.Info("Checking database schema...")
 
+	// First, ensure the node_statuses table exists (as it's partitioned, we need to create it manually)
+	nodeStatusTableSQL := `
+	CREATE TABLE IF NOT EXISTS node_statuses (
+		id BIGSERIAL,
+		network VARCHAR(20) NOT NULL,
+		type VARCHAR(20) NOT NULL,
+		base_url TEXT,
+		peer_id VARCHAR(100) NOT NULL,
+		version VARCHAR(50),
+		commit_hash VARCHAR(64),
+		best_block_hash VARCHAR(64) NOT NULL,
+		best_height INTEGER NOT NULL,
+		block_assembly_details JSONB,
+		fsm_state VARCHAR(50),
+		start_time BIGINT NOT NULL,
+		uptime DOUBLE PRECISION NOT NULL,
+		client_name VARCHAR(100),
+		miner_name VARCHAR(100),
+		listen_mode VARCHAR(50),
+		chain_work TEXT,
+		sync_peer_id VARCHAR(100),
+		sync_peer_height INTEGER DEFAULT 0,
+		sync_peer_block_hash VARCHAR(64),
+		sync_connected_at BIGINT DEFAULT 0,
+		received_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+		PRIMARY KEY (id, received_at)
+	) PARTITION BY RANGE (received_at);`
+
+	if err := db.Exec(nodeStatusTableSQL).Error; err != nil {
+		if !strings.Contains(err.Error(), "already exists") {
+			log.Warnf("Failed to create node_statuses table: %v", err)
+		}
+	}
+
 	// Use GORM auto-migration for PostgreSQL models
 	if err := db.AutoMigrate(
 		&model.BlockPG{},
@@ -107,6 +142,7 @@ func main() {
 		&model.RejectedTxPG{},
 		&model.BestBlockRequestPG{},
 		&model.StatsCachePG{},
+		&model.NodeStatusPG{},
 	); err != nil {
 		log.Warnf("AutoMigrate warning: %v", err)
 	} else {
@@ -116,7 +152,7 @@ func main() {
 	// Create partitions for current and next months if they don't exist
 	log.Info("Creating database partitions for current month...")
 	currentTime := time.Now()
-	partitionTables := []string{"blocks", "block_headers", "handshakes", "mining_ons", "subtrees", "rejected_txes"}
+	partitionTables := []string{"blocks", "block_headers", "handshakes", "mining_ons", "subtrees", "rejected_txes", "node_statuses"}
 
 	for _, tableName := range partitionTables {
 		// Create partition for current month
@@ -206,6 +242,8 @@ func main() {
 		log.Warn("Using deprecated 'topics' config. Please migrate to 'networks' config.")
 	} else {
 		topics = parser.GenerateTopics(networks)
+		// Add the node_status topic which doesn't have network prefix
+		topics = append(topics, "bitcoin/node_status")
 		log.Infof("Generated %d topics from %d networks", len(topics), len(networks))
 	}
 
@@ -358,6 +396,43 @@ func main() {
 					ReceivedAt: receivedAt,
 				}); err != nil {
 					log.Errorf("Failed to add rejected tx to batch: %v", err)
+				}
+
+			case parser.TypeNodeStatus:
+				nodeStatusMsg := parsedMsg.Data.(parser.NodeStatusMessage)
+
+				// Convert block assembly details to JSON if present
+				var blockAssemblyJSON string
+				if nodeStatusMsg.BlockAssemblyDetails != nil {
+					if jsonBytes, err := json.Marshal(nodeStatusMsg.BlockAssemblyDetails); err == nil {
+						blockAssemblyJSON = string(jsonBytes)
+					}
+				}
+
+				if err := batchService.AddNodeStatus(model.NodeStatusPG{
+					Network:              parsedMsg.Network,
+					Type:                 nodeStatusMsg.Type,
+					BaseURL:              nodeStatusMsg.BaseURL,
+					PeerID:               nodeStatusMsg.PeerID,
+					Version:              nodeStatusMsg.Version,
+					CommitHash:           nodeStatusMsg.CommitHash,
+					BestBlockHash:        nodeStatusMsg.BestBlockHash,
+					BestHeight:           nodeStatusMsg.BestHeight,
+					BlockAssemblyDetails: blockAssemblyJSON,
+					FSMState:             nodeStatusMsg.FSMState,
+					StartTime:            nodeStatusMsg.StartTime,
+					Uptime:               nodeStatusMsg.Uptime,
+					ClientName:           nodeStatusMsg.ClientName,
+					MinerName:            nodeStatusMsg.MinerName,
+					ListenMode:           nodeStatusMsg.ListenMode,
+					ChainWork:            nodeStatusMsg.ChainWork,
+					SyncPeerID:           nodeStatusMsg.SyncPeerID,
+					SyncPeerHeight:       nodeStatusMsg.SyncPeerHeight,
+					SyncPeerBlockHash:    nodeStatusMsg.SyncPeerBlockHash,
+					SyncConnectedAt:      nodeStatusMsg.SyncConnectedAt,
+					ReceivedAt:           receivedAt,
+				}); err != nil {
+					log.Errorf("Failed to add node status to batch: %v", err)
 				}
 			}
 

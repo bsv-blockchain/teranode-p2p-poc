@@ -27,6 +27,7 @@ type BatchInsertService struct {
 	subtreeBuffer     []model.SubtreePG
 	rejectedTxBuffer  []model.RejectedTxPG
 	bestBlockBuffer   []model.BestBlockRequestPG
+	nodeStatusBuffer  []model.NodeStatusPG
 
 	// Mutexes for thread-safe access
 	blockMu       sync.Mutex
@@ -36,6 +37,7 @@ type BatchInsertService struct {
 	subtreeMu     sync.Mutex
 	rejectedTxMu  sync.Mutex
 	bestBlockMu   sync.Mutex
+	nodeStatusMu  sync.Mutex
 
 	// Context for shutdown
 	ctx    context.Context
@@ -61,6 +63,7 @@ func NewBatchInsertService(db *gorm.DB, log *logrus.Logger, batchSize int, flush
 		subtreeBuffer:     make([]model.SubtreePG, 0, batchSize),
 		rejectedTxBuffer:  make([]model.RejectedTxPG, 0, batchSize),
 		bestBlockBuffer:   make([]model.BestBlockRequestPG, 0, batchSize),
+		nodeStatusBuffer:  make([]model.NodeStatusPG, 0, batchSize),
 	}
 
 	// Start the periodic flush goroutine
@@ -223,6 +226,12 @@ func (s *BatchInsertService) FlushAll() {
 		s.flushBestBlocksLocked()
 	}
 	s.bestBlockMu.Unlock()
+
+	s.nodeStatusMu.Lock()
+	if len(s.nodeStatusBuffer) > 0 {
+		s.flushNodeStatusesLocked()
+	}
+	s.nodeStatusMu.Unlock()
 }
 
 // Internal flush methods (must be called with lock held)
@@ -343,6 +352,37 @@ func (s *BatchInsertService) flushBestBlocksLocked() error {
 
 	s.log.Debugf("Batch inserted %d best block requests in %v", len(s.bestBlockBuffer), time.Since(startTime))
 	s.bestBlockBuffer = s.bestBlockBuffer[:0]
+	return nil
+}
+
+// AddNodeStatus adds a node status to the buffer
+func (s *BatchInsertService) AddNodeStatus(nodeStatus model.NodeStatusPG) error {
+	s.nodeStatusMu.Lock()
+	defer s.nodeStatusMu.Unlock()
+
+	s.nodeStatusBuffer = append(s.nodeStatusBuffer, nodeStatus)
+
+	if len(s.nodeStatusBuffer) >= s.batchSize {
+		return s.flushNodeStatusesLocked()
+	}
+	return nil
+}
+
+func (s *BatchInsertService) flushNodeStatusesLocked() error {
+	if len(s.nodeStatusBuffer) == 0 {
+		return nil
+	}
+
+	startTime := time.Now()
+	// Node status updates are partitioned by month, so we need to handle potential partition issues
+	err := s.db.Clauses(clause.OnConflict{DoNothing: true}).CreateInBatches(s.nodeStatusBuffer, 1000).Error
+	if err != nil {
+		s.log.Errorf("Failed to batch insert node_statuses: %v", err)
+		return fmt.Errorf("batch insert node_statuses failed: %w", err)
+	}
+
+	s.log.Debugf("Batch inserted %d node_statuses in %v", len(s.nodeStatusBuffer), time.Since(startTime))
+	s.nodeStatusBuffer = s.nodeStatusBuffer[:0]
 	return nil
 }
 

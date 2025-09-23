@@ -146,6 +146,36 @@ func (StatsCachePG) TableName() string {
 	return "stats_caches"
 }
 
+// NodeStatusPG represents a node status message (PostgreSQL optimized)
+type NodeStatusPG struct {
+	ID                   uint64    `gorm:"primaryKey;autoIncrement" json:"ID"`
+	Network              string    `gorm:"type:varchar(20);not null;index:idx_nodestatus_network_received" json:"Network"`
+	Type                 string    `gorm:"type:varchar(20);not null" json:"Type"`
+	BaseURL              string    `gorm:"type:text" json:"BaseURL"`
+	PeerID               string    `gorm:"type:varchar(100);not null;index:idx_nodestatus_peer_received" json:"PeerID"`
+	Version              string    `gorm:"type:varchar(50)" json:"Version"`
+	CommitHash           string    `gorm:"type:varchar(64)" json:"CommitHash"`
+	BestBlockHash        string    `gorm:"type:varchar(64);not null" json:"BestBlockHash"`
+	BestHeight           uint32    `gorm:"not null;index:idx_nodestatus_height" json:"BestHeight"`
+	BlockAssemblyDetails string    `gorm:"type:jsonb" json:"BlockAssemblyDetails"` // JSON storage for complex struct
+	FSMState             string    `gorm:"type:varchar(50)" json:"FSMState"`
+	StartTime            int64     `gorm:"not null" json:"StartTime"`
+	Uptime               float64   `gorm:"not null" json:"Uptime"`
+	ClientName           string    `gorm:"type:varchar(100)" json:"ClientName"`
+	MinerName            string    `gorm:"type:varchar(100);index:idx_nodestatus_miner" json:"MinerName"`
+	ListenMode           string    `gorm:"type:varchar(50)" json:"ListenMode"`
+	ChainWork            string    `gorm:"type:text" json:"ChainWork"`
+	SyncPeerID           string    `gorm:"type:varchar(100)" json:"SyncPeerID"`
+	SyncPeerHeight       int32     `gorm:"default:0" json:"SyncPeerHeight"`
+	SyncPeerBlockHash    string    `gorm:"type:varchar(64)" json:"SyncPeerBlockHash"`
+	SyncConnectedAt      int64     `gorm:"default:0" json:"SyncConnectedAt"`
+	ReceivedAt           time.Time `gorm:"not null;default:CURRENT_TIMESTAMP;index:idx_nodestatus_received_at" json:"ReceivedAt"`
+}
+
+func (NodeStatusPG) TableName() string {
+	return "node_statuses"
+}
+
 // MigratePostgreSQL runs the optimized PostgreSQL schema migration
 func MigratePostgreSQL(db *gorm.DB) error {
 	// Note: The actual schema creation should be done via the SQL migration file

@@ -196,18 +196,41 @@ export class ApiService {
     const page = filters.page || 1;
     const limit = filters.limit || 20;
     const offset = (page - 1) * limit;
-    
+
     if (filters.network && filters.network !== 'all') params.append('network', filters.network);
     if (filters.peer) params.append('peer_id', filters.peer);
     params.append('limit', limit.toString());
     params.append('offset', offset.toString());
-    
+
     const response = await fetch(`${API_BASE_URL}/api/rejected-tx?${params.toString()}`);
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     const data: RejectedTx[] = await response.json();
-    
+
+    return {
+      data: data || [],
+      pagination: this.createPagination(data?.length || 0, page, limit, offset)
+    };
+  }
+
+  static async getNodeStatuses(filters: DashboardFilters): Promise<{ data: import('../types/Message').NodeStatus[], pagination: PaginationInfo }> {
+    const params = new URLSearchParams();
+    const page = filters.page || 1;
+    const limit = filters.limit || 20;
+    const offset = (page - 1) * limit;
+
+    if (filters.network && filters.network !== 'all') params.append('network', filters.network);
+    if (filters.peer) params.append('peer_id', filters.peer);
+    params.append('limit', limit.toString());
+    params.append('offset', offset.toString());
+
+    const response = await fetch(`${API_BASE_URL}/api/node-statuses?${params.toString()}`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data: import('../types/Message').NodeStatus[] = await response.json();
+
     return {
       data: data || [],
       pagination: this.createPagination(data?.length || 0, page, limit, offset)
@@ -243,6 +266,8 @@ export class ApiService {
           return await this.getHandshakes(filters);
         case 'rejected_tx':
           return await this.getRejectedTransactions(filters);
+        case 'node_status':
+          return await this.getNodeStatuses(filters);
         default:
           throw new Error(`Unknown message type: ${filters.messageType}`);
       }
