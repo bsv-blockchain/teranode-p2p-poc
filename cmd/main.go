@@ -406,7 +406,13 @@ func main() {
 				if nodeStatusMsg.BlockAssemblyDetails != nil {
 					if jsonBytes, err := json.Marshal(nodeStatusMsg.BlockAssemblyDetails); err == nil {
 						blockAssemblyJSON = string(jsonBytes)
+					} else {
+						// If marshaling fails, use empty JSON object
+						blockAssemblyJSON = "{}"
 					}
+				} else {
+					// Use empty JSON object instead of empty string for NULL values
+					blockAssemblyJSON = "{}"
 				}
 
 				if err := batchService.AddNodeStatus(model.NodeStatusPG{
