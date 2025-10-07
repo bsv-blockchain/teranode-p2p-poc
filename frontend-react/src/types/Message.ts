@@ -206,6 +206,7 @@ export interface NodeStatus {
   SyncPeerHeight?: number;
   SyncPeerBlockHash?: string;
   SyncConnectedAt?: number;
+  MinMiningTxFee?: number;  // Minimum mining transaction fee
   ReceivedAt: string;
   Topic?: string;  // For WebSocket messages
 }

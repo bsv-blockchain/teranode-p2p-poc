@@ -1,5 +1,5 @@
 import React from 'react';
-import { Block, MiningOn, Subtree, Handshake, RejectedTx } from '../types/Message';
+import { Block, MiningOn, Subtree, Handshake, RejectedTx, NodeStatus } from '../types/Message';
 import { ClickablePeerNameDisplay } from './ClickablePeerNameDisplay';
 
 interface MessageCardBaseProps {
@@ -323,7 +323,7 @@ export const RejectedTxCard: React.FC<RejectedTxCardProps> = ({ rejectedTx, isNe
         {rejectedTx.TxID || 'N/A'}
       </p>
     </div>
-    
+
     <div>
       <span className="text-xs sm:text-sm font-medium text-gray-500">Reason</span>
       <p className="text-xs sm:text-sm text-gray-900 bg-red-50 p-2 rounded break-words">
@@ -332,4 +332,200 @@ export const RejectedTxCard: React.FC<RejectedTxCardProps> = ({ rejectedTx, isNe
     </div>
   </MessageCardBase>
 );
+
+interface NodeStatusCardProps {
+  nodeStatus: NodeStatus;
+  isNew?: boolean;
+}
+
+export const NodeStatusCard: React.FC<NodeStatusCardProps> = ({ nodeStatus, isNew }) => {
+  const formatUptime = (seconds: number): string => {
+    if (!seconds || seconds <= 0) return 'N/A';
+
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+
+    if (days > 0) {
+      return `${days}d ${hours}h ${minutes}m`;
+    } else if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    } else {
+      return `${minutes}m`;
+    }
+  };
+
+  const formatStartTime = (timestamp: number): string => {
+    if (!timestamp || timestamp <= 0) return 'N/A';
+    try {
+      const date = new Date(timestamp * 1000);
+      return date.toLocaleString();
+    } catch {
+      return 'N/A';
+    }
+  };
+
+  const formatSyncTime = (timestamp: number): string => {
+    if (!timestamp || timestamp <= 0) return 'N/A';
+    try {
+      const date = new Date(timestamp * 1000);
+      const now = new Date();
+      const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+      if (diffInSeconds < 60) return `${diffInSeconds}s ago`;
+      if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+      if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+      return `${Math.floor(diffInSeconds / 86400)}d ago`;
+    } catch {
+      return 'N/A';
+    }
+  };
+
+  const getFSMStateColor = (state: string): string => {
+    const stateColors: Record<string, string> = {
+      'running': 'text-green-600',
+      'syncing': 'text-blue-600',
+      'stopped': 'text-red-600',
+      'paused': 'text-yellow-600',
+      'idle': 'text-gray-600'
+    };
+    return stateColors[state?.toLowerCase()] || 'text-gray-600';
+  };
+
+  return (
+    <MessageCardBase
+      icon="🖥️"
+      title={`Node Status - ${nodeStatus.Type || 'UNKNOWN'}`}
+      network={nodeStatus.Network}
+      receivedAt={nodeStatus.ReceivedAt}
+      isNew={isNew}
+      className="border-l-4 border-l-blue-400"
+      sentFromPeer={nodeStatus.sentFromPeer}
+      peerID={nodeStatus.PeerID}
+    >
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+        <div>
+          <span className="text-xs sm:text-sm font-medium text-gray-500">Client Name</span>
+          <p className="text-xs sm:text-sm text-gray-900">{nodeStatus.ClientName || 'Unknown'}</p>
+        </div>
+        <div>
+          <span className="text-xs sm:text-sm font-medium text-gray-500">Version</span>
+          <p className="text-xs sm:text-sm text-gray-900">{nodeStatus.Version || 'N/A'}</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+        <div>
+          <span className="text-xs sm:text-sm font-medium text-gray-500">Best Height</span>
+          <p className="text-xs sm:text-sm text-gray-900">
+            {nodeStatus.BestHeight?.toLocaleString() || 'N/A'}
+          </p>
+        </div>
+        <div>
+          <span className="text-xs sm:text-sm font-medium text-gray-500">FSM State</span>
+          <p className={`text-xs sm:text-sm font-semibold ${getFSMStateColor(nodeStatus.FSMState)}`}>
+            {nodeStatus.FSMState || 'Unknown'}
+          </p>
+        </div>
+      </div>
+
+      <div>
+        <span className="text-sm font-medium text-gray-500">Best Block Hash</span>
+        <p className="font-mono text-sm text-gray-900 truncate" title={nodeStatus.BestBlockHash || ''}>
+          {nodeStatus.BestBlockHash || 'N/A'}
+        </p>
+      </div>
+
+      {nodeStatus.CommitHash && (
+        <div>
+          <span className="text-sm font-medium text-gray-500">Commit Hash</span>
+          <p className="font-mono text-sm text-gray-900 truncate" title={nodeStatus.CommitHash}>
+            {nodeStatus.CommitHash.substring(0, 12)}
+          </p>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+        <div>
+          <span className="text-xs sm:text-sm font-medium text-gray-500">Uptime</span>
+          <p className="text-xs sm:text-sm text-gray-900">{formatUptime(nodeStatus.Uptime)}</p>
+        </div>
+        <div>
+          <span className="text-xs sm:text-sm font-medium text-gray-500">Started</span>
+          <p className="text-xs sm:text-sm text-gray-900">{formatStartTime(nodeStatus.StartTime)}</p>
+        </div>
+      </div>
+
+      {nodeStatus.MinerName && (
+        <div>
+          <span className="text-sm font-medium text-gray-500">Miner</span>
+          <p className="text-sm text-gray-900">{nodeStatus.MinerName}</p>
+        </div>
+      )}
+
+      {nodeStatus.ListenMode && (
+        <div>
+          <span className="text-sm font-medium text-gray-500">Listen Mode</span>
+          <p className="text-sm text-gray-900">{nodeStatus.ListenMode}</p>
+        </div>
+      )}
+
+      {nodeStatus.ChainWork && (
+        <div>
+          <span className="text-sm font-medium text-gray-500">Chain Work</span>
+          <p className="font-mono text-xs text-gray-900 truncate" title={nodeStatus.ChainWork}>
+            {nodeStatus.ChainWork}
+          </p>
+        </div>
+      )}
+
+      {nodeStatus.MinMiningTxFee !== undefined && nodeStatus.MinMiningTxFee !== null && (
+        <div>
+          <span className="text-sm font-medium text-gray-500">Min Mining TX Fee</span>
+          <p className="text-sm text-gray-900">
+            {nodeStatus.MinMiningTxFee === 0 ? 'No fee' : nodeStatus.MinMiningTxFee.toFixed(8) + ' BSV/byte'}
+          </p>
+        </div>
+      )}
+
+      {nodeStatus.SyncPeerID && (
+        <div className="border-t border-gray-100 pt-3 space-y-2">
+          <div className="font-semibold text-sm text-gray-700">Sync Information</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            <div>
+              <span className="text-xs sm:text-sm font-medium text-gray-500">Sync Peer</span>
+              <div className="text-xs sm:text-sm text-gray-900">
+                <ClickablePeerNameDisplay
+                  peerID={nodeStatus.SyncPeerID}
+                  showBoth={true}
+                  className="text-gray-700 hover:text-gray-900"
+                />
+              </div>
+            </div>
+            <div>
+              <span className="text-xs sm:text-sm font-medium text-gray-500">Sync Height</span>
+              <p className="text-xs sm:text-sm text-gray-900">
+                {nodeStatus.SyncPeerHeight?.toLocaleString() || 'N/A'}
+              </p>
+            </div>
+          </div>
+          {nodeStatus.SyncPeerBlockHash && (
+            <div>
+              <span className="text-sm font-medium text-gray-500">Sync Block Hash</span>
+              <p className="font-mono text-xs text-gray-900 truncate" title={nodeStatus.SyncPeerBlockHash}>
+                {nodeStatus.SyncPeerBlockHash}
+              </p>
+            </div>
+          )}
+          {nodeStatus.SyncConnectedAt && (
+            <div>
+              <span className="text-sm font-medium text-gray-500">Connected</span>
+              <p className="text-sm text-gray-900">{formatSyncTime(nodeStatus.SyncConnectedAt)}</p>
+            </div>
+          )}
+        </div>
+      )}
+    </MessageCardBase>
+  );
+};
 

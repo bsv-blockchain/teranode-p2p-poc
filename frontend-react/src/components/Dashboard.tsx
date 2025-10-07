@@ -8,22 +8,24 @@ import { MessageTypeFilter } from './MessageTypeFilter';
 import { PeerFilter } from './PeerFilter';
 import PaginationComponent from './Pagination';
 import WebSocketStatusComponent from './WebSocketStatus';
-import { 
-  BlockCard, 
+import {
+  BlockCard,
   // MiningCard, // Temporarily disabled
-  SubtreeCard, 
-  HandshakeCard, 
-  RejectedTxCard
+  SubtreeCard,
+  HandshakeCard,
+  RejectedTxCard,
+  NodeStatusCard
 } from './MessageCards';
-import { 
-  Network, 
-  MessageType, 
+import {
+  Network,
+  MessageType,
   DashboardFilters,
   Block,
   MiningOn,
   Subtree,
   Handshake,
   RejectedTx,
+  NodeStatus,
   Message,
   PaginationInfo
 } from '../types/Message';
@@ -185,6 +187,8 @@ export const Dashboard: React.FC = () => {
         return <HandshakeCard key={item.ID || index} handshake={item as Handshake} isNew={isNew} />;
       case 'rejected_tx':
         return <RejectedTxCard key={item.ID || index} rejectedTx={item as RejectedTx} isNew={isNew} />;
+      case 'node_status':
+        return <NodeStatusCard key={item.ID || index} nodeStatus={item as NodeStatus} isNew={isNew} />;
       default:
         // Should not reach here - log error and return null
         console.error('Unknown message type:', messageType, 'for item:', item);

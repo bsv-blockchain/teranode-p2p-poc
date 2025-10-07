@@ -131,19 +131,28 @@ export class MessageParser {
 
   private static parseNodeStatusMessage(base: any, data: any): NodeStatus {
     return {
-        ...base,
-        PeerID: data.peer_id || data.PeerID || data.peerId || base.sentFromPeer || '',  // Try to get peer ID from data, fallback to sender
-        Type: data.type || data.Type || 'unknown',
-        Version: data.version || data.Version || 'unknown',
-        Uptime: data.uptime || data.Uptime || 0,
-        Connections: data.connections || data.Connections || 0,
-        Blocks: data.blocks || data.Blocks || 0,
-        Peers: data.peers || data.Peers || 0,
-        TxPoolSize: data.tx_pool_size || data.TxPoolSize || 0,
-        MemoryUsageMB: data.memory_usage_mb || data.MemoryUsageMB || 0,
-        CPUUsagePercent: data.cpu_usage_percent || data.CPUUsagePercent || 0,
-        DataHubURL: data.data_hub_url || data.DataHubURL || ''
-    }
+      ...base,
+      PeerID: data.peer_id || data.PeerID || data.peerId || base.sentFromPeer || '',
+      Type: data.type || data.Type || '',
+      BaseURL: data.base_url || data.BaseURL || data.baseUrl || '',
+      Version: data.version || data.Version || '',
+      CommitHash: data.commit_hash || data.CommitHash || data.commitHash || '',
+      BestBlockHash: data.best_block_hash || data.BestBlockHash || data.bestBlockHash || '',
+      BestHeight: data.best_height || data.BestHeight || data.bestHeight || 0,
+      BlockAssemblyDetails: data.block_assembly_details || data.BlockAssemblyDetails || data.blockAssemblyDetails || null,
+      FSMState: data.fsm_state || data.FSMState || data.fsmState || '',
+      StartTime: data.start_time || data.StartTime || data.startTime || 0,
+      Uptime: data.uptime || data.Uptime || 0,
+      ClientName: data.client_name || data.ClientName || data.clientName || '',
+      MinerName: data.miner_name || data.MinerName || data.minerName || '',
+      ListenMode: data.listen_mode || data.ListenMode || data.listenMode || '',
+      ChainWork: data.chain_work || data.ChainWork || data.chainWork || '',
+      SyncPeerID: data.sync_peer_id || data.SyncPeerID || data.syncPeerId,
+      SyncPeerHeight: data.sync_peer_height || data.SyncPeerHeight || data.syncPeerHeight,
+      SyncPeerBlockHash: data.sync_peer_block_hash || data.SyncPeerBlockHash || data.syncPeerBlockHash,
+      SyncConnectedAt: data.sync_connected_at || data.SyncConnectedAt || data.syncConnectedAt,
+      MinMiningTxFee: data.min_mining_tx_fee || data.MinMiningTxFee || data.minMiningTxFee
+    };
   }
 
 }
