@@ -237,6 +237,22 @@ export class ApiService {
     };
   }
 
+  static async getLatestNodeStatuses(network: string): Promise<import('../types/Message').NodeStatus[]> {
+    const params = new URLSearchParams();
+    params.append('network', network);
+    // Get more statuses to ensure we have the latest for each peer
+    params.append('limit', '500');
+    params.append('offset', '0');
+
+    const response = await fetch(`${API_BASE_URL}/api/node-statuses?${params.toString()}`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data: import('../types/Message').NodeStatus[] = await response.json();
+    return data || [];
+  }
+
   static async getMessagesByType(filters: DashboardFilters): Promise<{ data: any[], pagination: PaginationInfo }> {
     try {
       if (!filters.messageType || filters.messageType === 'all') {
