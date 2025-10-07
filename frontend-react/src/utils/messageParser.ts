@@ -4,7 +4,8 @@ import {
   MiningOn, 
   Subtree, 
   Handshake, 
-  RejectedTx
+  RejectedTx,
+  NodeStatus
 } from '../types/Message';
 
 export class MessageParser {
@@ -41,7 +42,10 @@ export class MessageParser {
         
         case 'handshake':
           return this.parseHandshakeMessage(baseMessage, parsedData);
-        
+
+        case 'node_status':
+          return this.parseNodeStatusMessage(baseMessage, parsedData);
+
         case 'rejected_tx':
           return this.parseRejectedTxMessage(baseMessage, parsedData);
         
@@ -123,6 +127,23 @@ export class MessageParser {
       Data: data.data || data.Data || '',
       ExtraInfo: data.extra_info || data.ExtraInfo || ''
     };
+  }
+
+  private static parseNodeStatusMessage(base: any, data: any): NodeStatus {
+    return {
+        ...base,
+        PeerID: data.peer_id || data.PeerID || data.peerId || base.sentFromPeer || '',  // Try to get peer ID from data, fallback to sender
+        Type: data.type || data.Type || 'unknown',
+        Version: data.version || data.Version || 'unknown',
+        Uptime: data.uptime || data.Uptime || 0,
+        Connections: data.connections || data.Connections || 0,
+        Blocks: data.blocks || data.Blocks || 0,
+        Peers: data.peers || data.Peers || 0,
+        TxPoolSize: data.tx_pool_size || data.TxPoolSize || 0,
+        MemoryUsageMB: data.memory_usage_mb || data.MemoryUsageMB || 0,
+        CPUUsagePercent: data.cpu_usage_percent || data.CPUUsagePercent || 0,
+        DataHubURL: data.data_hub_url || data.DataHubURL || ''
+    }
   }
 
 }

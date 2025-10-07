@@ -1,20 +1,19 @@
-//go:build postgres
-// +build postgres
-
 package main
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/bsv-blockchain/teranode-p2p-poc/pkg/http"
 	"github.com/bsv-blockchain/teranode-p2p-poc/pkg/model"
 	"github.com/bsv-blockchain/teranode-p2p-poc/pkg/parser"
 	"github.com/bsv-blockchain/teranode-p2p-poc/pkg/service"
 	"github.com/bsv-blockchain/teranode-p2p-poc/pkg/websocket"
+	simonp2p "github.com/bsv-blockchain/go-p2p-message-bus"
 	"github.com/sirupsen/logrus"
-	"strings"
-	"time"
 
 	"github.com/bsv-blockchain/go-p2p"
 	"github.com/spf13/viper"
@@ -83,8 +82,8 @@ func main() {
 	}
 
 	// Optimized connection pool settings for PostgreSQL
-	sqlDB.SetMaxOpenConns(50)        // PostgreSQL can handle many connections
-	sqlDB.SetMaxIdleConns(25)        // Keep connections ready
+	sqlDB.SetMaxOpenConns(50) // PostgreSQL can handle many connections
+	sqlDB.SetMaxIdleConns(25) // Keep connections ready
 	sqlDB.SetConnMaxLifetime(5 * time.Minute)
 	sqlDB.SetConnMaxIdleTime(5 * time.Minute)
 
@@ -222,13 +221,7 @@ func main() {
 	defer batchService.Stop()
 
 	// Load P2P settings from config
-	bootstrapAddresses := viper.GetStringSlice("p2p.bootstrap_addresses")
-	sharedKey := viper.GetString("p2p.shared_key")
-	dhtProtocolID := viper.GetString("p2p.dht_protocol_id")
 	port := viper.GetInt("p2p.port")
-	listenAddresses := viper.GetStringSlice("p2p.listen_addresses")
-	advertise := viper.GetBool("p2p.advertise")
-	usePrivateDHT := viper.GetBool("p2p.use_private_dht")
 
 	// Get networks from config and generate topics
 	var topics []string
@@ -247,212 +240,221 @@ func main() {
 		log.Infof("Generated %d topics from %d networks", len(topics), len(networks))
 	}
 
-	config := p2p.Config{
-		ProcessName:        "teranode-p2p-poc",
-		Port:               port,
-		ListenAddresses:    listenAddresses,
-		Advertise:          advertise,
-		UsePrivateDHT:      usePrivateDHT,
-		SharedKey:          sharedKey,
-		BootstrapAddresses: bootstrapAddresses,
-		DHTProtocolID:      dhtProtocolID,
-	}
-
-	node, err := p2p.NewNode(ctx, log, config)
-	if err != nil {
-		panic(err)
-	}
-	err = node.Start(ctx, nil, topics...)
+	pk, err := simonp2p.GeneratePrivateKey()
 	if err != nil {
 		panic(err)
 	}
 
-	// Set up message handlers with batch processing
+	newConfig := simonp2p.Config{
+		Port:   port,
+		Logger: log,
+		//AnnounceAddrs: listenAddresses,
+		PrivateKey: pk,
+		Name:       "teranode-p2p-listener",
+	}
+
+	node, err := simonp2p.NewClient(newConfig)
+	if err != nil {
+		panic(err)
+	}
+
 	for _, topic := range topics {
-		topicCopy := topic // capture range variable
-		err = node.SetTopicHandler(ctx, topicCopy, func(ctx context.Context, data []byte, peer string) {
-			// Try to parse the message
-			parsedMsg, parseErr := parser.ParseMessage(topicCopy, data)
+		log.Infof("Subscribing to topic: %s", topic)
+		topicChannel := node.Subscribe(topic)
+		go func() {
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case msg, ok := <-topicChannel:
+					if !ok {
+						log.Warnf("Topic channel closed for topic: %s", topic)
+						return
+					}
+					data := msg.Data
+					// Handle incoming messages if needed
+					log.Infof("Received message on topic %s from peer %s", msg.Topic, msg.From)
+					// Try to parse the message
+					parsedMsg, parseErr := parser.ParseMessage(topic, data)
 
-			if parseErr != nil {
-				log.Warnf("Failed to parse message for topic %s: %v", topicCopy, parseErr)
-				return
-			}
-
-			// Capture timestamp once for consistent storage
-			receivedAt := time.Now()
-
-			// Store parsed message using batch insert service
-			switch parsedMsg.Type {
-			case parser.TypeBestBlock:
-				bbMsg := parsedMsg.Data.(p2p.BestBlockRequestMessage)
-				if err := batchService.AddBestBlockRequest(model.BestBlockRequestPG{
-					Network:    parsedMsg.Network,
-					PeerID:     bbMsg.PeerID,
-					ReceivedAt: receivedAt,
-				}); err != nil {
-					log.Errorf("Failed to add best block request to batch: %v", err)
-				}
-
-			case parser.TypeBlock:
-				blockMsg := parsedMsg.Data.(p2p.BlockMessage)
-				block := model.BlockPG{
-					Network:    parsedMsg.Network,
-					Hash:       blockMsg.Hash,
-					Height:     blockMsg.Height,
-					DataHubURL: blockMsg.DataHubURL,
-					PeerID:     blockMsg.PeerID,
-					Header:     blockMsg.Header,
-					ReceivedAt: receivedAt,
-				}
-
-				if err := batchService.AddBlock(block); err != nil {
-					log.Errorf("Failed to add block to batch: %v", err)
-				}
-
-				// Parse and store block header if available
-				if blockMsg.Header != "" {
-					blockHeader, parseErr := parser.ParseBlockHeader(blockMsg.Header, parsedMsg.Network, receivedAt)
 					if parseErr != nil {
-						log.Errorf("Failed to parse block header: %v", parseErr)
-					} else {
-						// Convert to PostgreSQL model
-						headerPG := model.BlockHeaderPG{
-							Network:        blockHeader.Network,
-							Hash:           blockMsg.Hash,
-							Height:         blockMsg.Height,
-							Version:        blockHeader.Version,
-							PreviousHash:   blockHeader.PreviousHash,
-							MerkleRoot:     blockHeader.MerkleRoot,
-							Timestamp:      blockHeader.Timestamp,
-							Bits:           blockHeader.Bits,
-							Nonce:          uint64(blockHeader.Nonce),
-							ReceivedAt:     receivedAt,
-							CoinbaseValue:  blockHeader.CoinbaseValue,
-							CoinbaseScript: blockHeader.CoinbaseScript,
-							MinerAddress:   blockHeader.MinerAddress,
-							CoinbaseTxID:   blockHeader.CoinbaseTxID,
-							CoinbaseText:   blockHeader.CoinbaseText,
+						log.Warnf("Failed to parse message for topic %s: %v", topic, parseErr)
+						return
+					}
+
+					// Capture timestamp once for consistent storage
+					receivedAt := time.Now()
+
+					// Store parsed message using batch insert service
+					switch parsedMsg.Type {
+					case parser.TypeBestBlock:
+						bbMsg := parsedMsg.Data.(p2p.BestBlockRequestMessage)
+						if err := batchService.AddBestBlockRequest(model.BestBlockRequestPG{
+							Network:    parsedMsg.Network,
+							PeerID:     bbMsg.PeerID,
+							ReceivedAt: receivedAt,
+						}); err != nil {
+							log.Errorf("Failed to add best block request to batch: %v", err)
 						}
 
-						if err := batchService.AddBlockHeader(headerPG); err != nil {
-							log.Errorf("Failed to add block header to batch: %v", err)
+					case parser.TypeBlock:
+						blockMsg := parsedMsg.Data.(p2p.BlockMessage)
+						block := model.BlockPG{
+							Network:    parsedMsg.Network,
+							Hash:       blockMsg.Hash,
+							Height:     blockMsg.Height,
+							DataHubURL: blockMsg.DataHubURL,
+							PeerID:     blockMsg.PeerID,
+							Header:     blockMsg.Header,
+							ReceivedAt: receivedAt,
+						}
+
+						if err := batchService.AddBlock(block); err != nil {
+							log.Errorf("Failed to add block to batch: %v", err)
+						}
+
+						// Parse and store block header if available
+						if blockMsg.Header != "" {
+							blockHeader, parseErr := parser.ParseBlockHeader(blockMsg.Header, parsedMsg.Network, receivedAt)
+							if parseErr != nil {
+								log.Errorf("Failed to parse block header: %v", parseErr)
+							} else {
+								// Convert to PostgreSQL model
+								headerPG := model.BlockHeaderPG{
+									Network:        blockHeader.Network,
+									Hash:           blockMsg.Hash,
+									Height:         blockMsg.Height,
+									Version:        blockHeader.Version,
+									PreviousHash:   blockHeader.PreviousHash,
+									MerkleRoot:     blockHeader.MerkleRoot,
+									Timestamp:      blockHeader.Timestamp,
+									Bits:           blockHeader.Bits,
+									Nonce:          uint64(blockHeader.Nonce),
+									ReceivedAt:     receivedAt,
+									CoinbaseValue:  blockHeader.CoinbaseValue,
+									CoinbaseScript: blockHeader.CoinbaseScript,
+									MinerAddress:   blockHeader.MinerAddress,
+									CoinbaseTxID:   blockHeader.CoinbaseTxID,
+									CoinbaseText:   blockHeader.CoinbaseText,
+								}
+
+								if err := batchService.AddBlockHeader(headerPG); err != nil {
+									log.Errorf("Failed to add block header to batch: %v", err)
+								}
+							}
+						}
+
+					case parser.TypeMiningOn:
+						miningMsg := parsedMsg.Data.(p2p.MiningOnMessage)
+						if err := batchService.AddMiningOn(model.MiningOnPG{
+							Network:      parsedMsg.Network,
+							Hash:         miningMsg.Hash,
+							PreviousHash: miningMsg.PreviousHash,
+							DataHubURL:   miningMsg.DataHubURL,
+							PeerID:       miningMsg.PeerID,
+							Height:       miningMsg.Height,
+							Miner:        miningMsg.Miner,
+							SizeInBytes:  miningMsg.SizeInBytes,
+							TxCount:      miningMsg.TxCount,
+							ReceivedAt:   receivedAt,
+						}); err != nil {
+							log.Errorf("Failed to add mining message to batch: %v", err)
+						}
+
+					case parser.TypeSubtree:
+						subtreeMsg := parsedMsg.Data.(p2p.SubtreeMessage)
+						if err := batchService.AddSubtree(model.SubtreePG{
+							Network:    parsedMsg.Network,
+							Hash:       subtreeMsg.Hash,
+							DataHubURL: subtreeMsg.DataHubURL,
+							PeerID:     subtreeMsg.PeerID,
+							ReceivedAt: receivedAt,
+						}); err != nil {
+							log.Errorf("Failed to add subtree to batch: %v", err)
+						}
+
+					case parser.TypeHandshake:
+						handshakeMsg := parsedMsg.Data.(p2p.HandshakeMessage)
+						if err := batchService.AddHandshake(model.HandshakePG{
+							Network:    parsedMsg.Network,
+							Type:       string(handshakeMsg.Type),
+							PeerID:     handshakeMsg.PeerID,
+							BestHeight: handshakeMsg.BestHeight,
+							BestHash:   handshakeMsg.BestHash,
+							DataHubURL: handshakeMsg.DataHubURL,
+							UserAgent:  handshakeMsg.UserAgent,
+							Services:   uint64(handshakeMsg.Services),
+							ReceivedAt: receivedAt,
+						}); err != nil {
+							log.Errorf("Failed to add handshake to batch: %v", err)
+						}
+
+					case parser.TypeRejectedTx:
+						rejectedMsg := parsedMsg.Data.(p2p.RejectedTxMessage)
+						if err := batchService.AddRejectedTx(model.RejectedTxPG{
+							Network:    parsedMsg.Network,
+							TxID:       rejectedMsg.TxID,
+							Reason:     rejectedMsg.Reason,
+							PeerID:     rejectedMsg.PeerID,
+							ReceivedAt: receivedAt,
+						}); err != nil {
+							log.Errorf("Failed to add rejected tx to batch: %v", err)
+						}
+
+					case parser.TypeNodeStatus:
+						nodeStatusMsg := parsedMsg.Data.(parser.NodeStatusMessage)
+
+						// Convert block assembly details to JSON if present
+						var blockAssemblyJSON string
+						if nodeStatusMsg.BlockAssemblyDetails != nil {
+							if jsonBytes, err := json.Marshal(nodeStatusMsg.BlockAssemblyDetails); err == nil {
+								blockAssemblyJSON = string(jsonBytes)
+							} else {
+								// If marshaling fails, use empty JSON object
+								blockAssemblyJSON = "{}"
+							}
+						} else {
+							// Use empty JSON object instead of empty string for NULL values
+							blockAssemblyJSON = "{}"
+						}
+
+						if err := batchService.AddNodeStatus(model.NodeStatusPG{
+							Network:              parsedMsg.Network,
+							Type:                 nodeStatusMsg.Type,
+							BaseURL:              nodeStatusMsg.BaseURL,
+							PeerID:               nodeStatusMsg.PeerID,
+							Version:              nodeStatusMsg.Version,
+							CommitHash:           nodeStatusMsg.CommitHash,
+							BestBlockHash:        nodeStatusMsg.BestBlockHash,
+							BestHeight:           nodeStatusMsg.BestHeight,
+							BlockAssemblyDetails: blockAssemblyJSON,
+							FSMState:             nodeStatusMsg.FSMState,
+							StartTime:            nodeStatusMsg.StartTime,
+							Uptime:               nodeStatusMsg.Uptime,
+							ClientName:           nodeStatusMsg.ClientName,
+							MinerName:            nodeStatusMsg.MinerName,
+							ListenMode:           nodeStatusMsg.ListenMode,
+							ChainWork:            nodeStatusMsg.ChainWork,
+							SyncPeerID:           nodeStatusMsg.SyncPeerID,
+							SyncPeerHeight:       nodeStatusMsg.SyncPeerHeight,
+							SyncPeerBlockHash:    nodeStatusMsg.SyncPeerBlockHash,
+							SyncConnectedAt:      nodeStatusMsg.SyncConnectedAt,
+							ReceivedAt:           receivedAt,
+						}); err != nil {
+							log.Errorf("Failed to add node status to batch: %v", err)
 						}
 					}
-				}
 
-			case parser.TypeMiningOn:
-				miningMsg := parsedMsg.Data.(p2p.MiningOnMessage)
-				if err := batchService.AddMiningOn(model.MiningOnPG{
-					Network:      parsedMsg.Network,
-					Hash:         miningMsg.Hash,
-					PreviousHash: miningMsg.PreviousHash,
-					DataHubURL:   miningMsg.DataHubURL,
-					PeerID:       miningMsg.PeerID,
-					Height:       miningMsg.Height,
-					Miner:        miningMsg.Miner,
-					SizeInBytes:  miningMsg.SizeInBytes,
-					TxCount:      miningMsg.TxCount,
-					ReceivedAt:   receivedAt,
-				}); err != nil {
-					log.Errorf("Failed to add mining message to batch: %v", err)
-				}
-
-			case parser.TypeSubtree:
-				subtreeMsg := parsedMsg.Data.(p2p.SubtreeMessage)
-				if err := batchService.AddSubtree(model.SubtreePG{
-					Network:    parsedMsg.Network,
-					Hash:       subtreeMsg.Hash,
-					DataHubURL: subtreeMsg.DataHubURL,
-					PeerID:     subtreeMsg.PeerID,
-					ReceivedAt: receivedAt,
-				}); err != nil {
-					log.Errorf("Failed to add subtree to batch: %v", err)
-				}
-
-			case parser.TypeHandshake:
-				handshakeMsg := parsedMsg.Data.(p2p.HandshakeMessage)
-				if err := batchService.AddHandshake(model.HandshakePG{
-					Network:    parsedMsg.Network,
-					Type:       string(handshakeMsg.Type),
-					PeerID:     handshakeMsg.PeerID,
-					BestHeight: handshakeMsg.BestHeight,
-					BestHash:   handshakeMsg.BestHash,
-					DataHubURL: handshakeMsg.DataHubURL,
-					UserAgent:  handshakeMsg.UserAgent,
-					Services:   uint64(handshakeMsg.Services),
-					ReceivedAt: receivedAt,
-				}); err != nil {
-					log.Errorf("Failed to add handshake to batch: %v", err)
-				}
-
-			case parser.TypeRejectedTx:
-				rejectedMsg := parsedMsg.Data.(p2p.RejectedTxMessage)
-				if err := batchService.AddRejectedTx(model.RejectedTxPG{
-					Network:    parsedMsg.Network,
-					TxID:       rejectedMsg.TxID,
-					Reason:     rejectedMsg.Reason,
-					PeerID:     rejectedMsg.PeerID,
-					ReceivedAt: receivedAt,
-				}); err != nil {
-					log.Errorf("Failed to add rejected tx to batch: %v", err)
-				}
-
-			case parser.TypeNodeStatus:
-				nodeStatusMsg := parsedMsg.Data.(parser.NodeStatusMessage)
-
-				// Convert block assembly details to JSON if present
-				var blockAssemblyJSON string
-				if nodeStatusMsg.BlockAssemblyDetails != nil {
-					if jsonBytes, err := json.Marshal(nodeStatusMsg.BlockAssemblyDetails); err == nil {
-						blockAssemblyJSON = string(jsonBytes)
-					} else {
-						// If marshaling fails, use empty JSON object
-						blockAssemblyJSON = "{}"
-					}
-				} else {
-					// Use empty JSON object instead of empty string for NULL values
-					blockAssemblyJSON = "{}"
-				}
-
-				if err := batchService.AddNodeStatus(model.NodeStatusPG{
-					Network:              parsedMsg.Network,
-					Type:                 nodeStatusMsg.Type,
-					BaseURL:              nodeStatusMsg.BaseURL,
-					PeerID:               nodeStatusMsg.PeerID,
-					Version:              nodeStatusMsg.Version,
-					CommitHash:           nodeStatusMsg.CommitHash,
-					BestBlockHash:        nodeStatusMsg.BestBlockHash,
-					BestHeight:           nodeStatusMsg.BestHeight,
-					BlockAssemblyDetails: blockAssemblyJSON,
-					FSMState:             nodeStatusMsg.FSMState,
-					StartTime:            nodeStatusMsg.StartTime,
-					Uptime:               nodeStatusMsg.Uptime,
-					ClientName:           nodeStatusMsg.ClientName,
-					MinerName:            nodeStatusMsg.MinerName,
-					ListenMode:           nodeStatusMsg.ListenMode,
-					ChainWork:            nodeStatusMsg.ChainWork,
-					SyncPeerID:           nodeStatusMsg.SyncPeerID,
-					SyncPeerHeight:       nodeStatusMsg.SyncPeerHeight,
-					SyncPeerBlockHash:    nodeStatusMsg.SyncPeerBlockHash,
-					SyncConnectedAt:      nodeStatusMsg.SyncConnectedAt,
-					ReceivedAt:           receivedAt,
-				}); err != nil {
-					log.Errorf("Failed to add node status to batch: %v", err)
+					// Broadcast to WebSocket clients (lightweight operation)
+					websocket.BroadcastMessage(model.Message{
+						Topic:      topic,
+						Data:       string(data),
+						Peer:       msg.From,
+						ReceivedAt: receivedAt,
+					})
 				}
 			}
-
-			// Broadcast to WebSocket clients (lightweight operation)
-			websocket.BroadcastMessage(model.Message{
-				Topic:      topicCopy,
-				Data:       string(data),
-				Peer:       peer,
-				ReceivedAt: receivedAt,
-			})
-		})
-		if err != nil {
-			panic(err)
-		}
+		}()
 	}
 
 	// Initialize stats service with PostgreSQL optimizations
@@ -510,7 +512,7 @@ func main() {
 		for {
 			select {
 			case <-ticker.C:
-				log.Infof("Connected peers: %d", len(node.ConnectedPeers()))
+				log.Infof("Connected peers: %d", len(node.GetPeers()))
 			}
 		}
 	}()

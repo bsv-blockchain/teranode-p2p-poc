@@ -52,8 +52,10 @@ export const Dashboard: React.FC = () => {
       const parsedMessage = MessageParser.parseWebSocketMessage(message);
       
       // Check if message matches current filters
-      const messageNetwork = message.Topic.split('/')[1]?.split('-')[0];
+      const messageNetwork = message.Topic.split('/')[3]?.split('-')[0];
+      console.log(messageNetwork)
       const messageType = message.Topic.split('-')[1];
+      console.log(messageType)
       
       
       const matchesNetwork = selectedNetwork === 'all' || messageNetwork === selectedNetwork;

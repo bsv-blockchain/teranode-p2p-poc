@@ -94,7 +94,7 @@ export class ApiService {
       console.error('Error fetching message types:', error);
       // Temporarily removing 'miningon' from visible message types
       // return ['block', 'miningon', 'subtree', 'handshake', 'rejected_tx'];
-      return ['block', 'subtree', 'handshake', 'rejected_tx'];
+      return ['block', 'subtree', 'node_status', 'rejected_tx'];
     }
   }
 

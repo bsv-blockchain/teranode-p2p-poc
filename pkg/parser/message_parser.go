@@ -33,7 +33,7 @@ func ParseMessage(topic string, data []byte) (*ParsedMessage, error) {
 	// Extract network and message type from topic
 	// Format: bitcoin/{network}-{message_type} or bitcoin/{network}-node_status
 	parts := strings.Split(topic, "/")
-	if len(parts) != 2 || parts[0] != "bitcoin" {
+	if len(parts) != 4 || parts[0] != "teranode" {
 		return nil, fmt.Errorf("invalid topic format: %s", topic)
 	}
 
@@ -45,7 +45,7 @@ func ParseMessage(topic string, data []byte) (*ParsedMessage, error) {
 		network = "all" // node_status applies to all networks
 		messageType = "node_status"
 	} else {
-		networkParts := strings.Split(parts[1], "-")
+		networkParts := strings.Split(parts[3], "-")
 		if len(networkParts) < 2 {
 			return nil, fmt.Errorf("invalid network-type format: %s", parts[1])
 		}
@@ -144,7 +144,7 @@ func GenerateTopics(networks []string) []string {
 
 	for _, network := range networks {
 		for _, msgType := range messageTypes {
-			topics = append(topics, fmt.Sprintf("bitcoin/%s-%s", network, msgType))
+			topics = append(topics, fmt.Sprintf("teranode/bitcoin/1.0.0/%s-%s", network, msgType))
 		}
 	}
 
