@@ -124,8 +124,9 @@ const PeerDetail: React.FC = () => {
       block: '📦',
       // miningon: '⛏️', // Temporarily disabled
       subtree: '🌳',
-      handshake: '🤝',
+      // handshake: '🤝', // Deprecated
       rejected_tx: '❌',
+      node_status: '🖥️',
       bestblock: '🏆'
     };
     return icons[type] || '📄';
@@ -324,46 +325,75 @@ const PeerDetail: React.FC = () => {
           </div>
         </div>
 
-        {/* Recent Handshakes */}
-        {peerDetail.handshakes.length > 0 && (
+        {/* Recent Node Status Updates */}
+        {peerDetail.nodeStatuses && peerDetail.nodeStatuses.length > 0 && (
           <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/50 p-6 sm:p-8 mb-8">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl flex items-center justify-center">
-                <span className="text-2xl">🤝</span>
+                <span className="text-2xl">🖥️</span>
               </div>
-              <h2 className="text-xl font-semibold text-gray-900">Recent Handshakes</h2>
+              <h2 className="text-xl font-semibold text-gray-900">Recent Node Status</h2>
             </div>
-            
+
             <div className="overflow-hidden rounded-xl border border-gray-200">
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User Agent</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">FSM State</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client / Version</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Best Height</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Uptime</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {peerDetail.handshakes.map((handshake, idx) => (
-                      <tr key={idx} className="hover:bg-gray-50 transition-colors duration-150">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            {handshake.Type}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-600 max-w-xs truncate" title={handshake.UserAgent}>
-                          {handshake.UserAgent}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {handshake.BestHeight.toLocaleString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {formatTime(handshake.ReceivedAt)}
-                        </td>
-                      </tr>
-                    ))}
+                    {peerDetail.nodeStatuses.map((status, idx) => {
+                      const getFSMStateColor = (state: string) => {
+                        switch(state?.toUpperCase()) {
+                          case 'RUNNING': return 'bg-green-100 text-green-800';
+                          case 'CATCHINGBLOCKS': return 'bg-orange-100 text-orange-800';
+                          case 'LEGACYSYNC': return 'bg-yellow-100 text-yellow-800';
+                          case 'IDLE': return 'bg-gray-100 text-gray-800';
+                          default: return 'bg-blue-100 text-blue-800';
+                        }
+                      };
+
+                      const formatUptime = (seconds: number) => {
+                        if (!seconds || seconds <= 0) return 'N/A';
+                        const days = Math.floor(seconds / 86400);
+                        const hours = Math.floor((seconds % 86400) / 3600);
+                        const minutes = Math.floor((seconds % 3600) / 60);
+                        if (days > 0) return `${days}d ${hours}h`;
+                        if (hours > 0) return `${hours}h ${minutes}m`;
+                        return `${minutes}m`;
+                      };
+
+                      return (
+                        <tr key={idx} className="hover:bg-gray-50 transition-colors duration-150">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getFSMStateColor(status.FSMState)}`}>
+                              {status.FSMState || 'UNKNOWN'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-600">
+                            <div>
+                              <div className="font-medium">{status.ClientName || 'Unknown'}</div>
+                              <div className="text-xs text-gray-500">{status.Version || 'N/A'}</div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {status.BestHeight?.toLocaleString() || 'N/A'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                            {formatUptime(status.Uptime)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {formatTime(status.ReceivedAt)}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

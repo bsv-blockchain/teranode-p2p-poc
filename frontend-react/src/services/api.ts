@@ -278,8 +278,6 @@ export class ApiService {
         //   return await this.getMiningMessages(filters);
         case 'subtree':
           return await this.getSubtrees(filters);
-        case 'handshake':
-          return await this.getHandshakes(filters);
         case 'rejected_tx':
           return await this.getRejectedTransactions(filters);
         case 'node_status':

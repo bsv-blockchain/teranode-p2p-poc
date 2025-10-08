@@ -82,6 +82,7 @@ export interface PeerDetail {
   networks: string[];
   messageTypes: Record<string, number>;
   handshakes: Handshake[];
+  nodeStatuses: NodeStatus[];
   recentBlocks: Block[];
   recentMining: MiningOn[];
   timeStats: {
@@ -213,7 +214,7 @@ export interface NodeStatus {
 
 // Temporarily removing 'miningon' from visible message types
 // export type MessageType = 'block' | 'miningon' | 'subtree' | 'handshake' | 'rejected_tx' | 'node_status';
-export type MessageType = 'block' | 'subtree' | 'handshake' | 'rejected_tx' | 'node_status';
+export type MessageType = 'block' | 'subtree' | 'rejected_tx' | 'node_status';
 export type Network = 'mainnet' | 'testnet' | 'regtest' | 'stn' | 'teratestnet' | 'tstn';
 
 export interface DashboardFilters {

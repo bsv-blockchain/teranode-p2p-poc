@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Network, NodeStatus, Message } from '../types/Message';
 import { ApiService } from '../services/api';
 import { nodeStatusStore, NodeStatusWithScore } from '../services/nodeStatusStore';
@@ -7,8 +8,27 @@ import { useWebSocket } from '../hooks/useWebSocket';
 import { PeerNameEditor } from './PeerNameEditor';
 import { PeerNamesService } from '../services/peerNames';
 
+const NETWORK_STORAGE_KEY = 'teranode-selected-network';
+
 const Networks: React.FC = () => {
-  const [selectedNetwork, setSelectedNetwork] = useState<Network>('mainnet');
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Get network from URL query param, then localStorage, then default to mainnet
+  const getInitialNetwork = (): Network => {
+    const urlNetwork = searchParams.get('network');
+    if (urlNetwork && ['mainnet', 'testnet', 'teratestnet', 'tstn'].includes(urlNetwork)) {
+      return urlNetwork as Network;
+    }
+
+    const storedNetwork = localStorage.getItem(NETWORK_STORAGE_KEY);
+    if (storedNetwork && ['mainnet', 'testnet', 'teratestnet', 'tstn'].includes(storedNetwork)) {
+      return storedNetwork as Network;
+    }
+
+    return 'mainnet';
+  };
+
+  const [selectedNetwork, setSelectedNetwork] = useState<Network>(getInitialNetwork());
   const [nodeStatuses, setNodeStatuses] = useState<NodeStatusWithScore[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -16,6 +36,25 @@ const Networks: React.FC = () => {
   const [sortField, setSortField] = useState<keyof NodeStatusWithScore>('chainworkScore');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [recentlyUpdated, setRecentlyUpdated] = useState<Set<string>>(new Set());
+
+  // Handle network change
+  const handleNetworkChange = useCallback((network: Network) => {
+    setSelectedNetwork(network);
+    // Update URL query parameter
+    setSearchParams({ network });
+    // Store in localStorage
+    localStorage.setItem(NETWORK_STORAGE_KEY, network);
+  }, [setSearchParams]);
+
+  // Sync with URL changes (browser back/forward)
+  useEffect(() => {
+    const urlNetwork = searchParams.get('network');
+    if (urlNetwork && ['mainnet', 'testnet', 'teratestnet', 'tstn'].includes(urlNetwork)) {
+      const network = urlNetwork as Network;
+      setSelectedNetwork(network);
+      localStorage.setItem(NETWORK_STORAGE_KEY, network);
+    }
+  }, [searchParams]);
 
   // WebSocket message handler
   const handleWebSocketMessage = useCallback((message: Message) => {
@@ -258,7 +297,7 @@ const Networks: React.FC = () => {
             <div className="flex items-center gap-4">
               <select
                 value={selectedNetwork}
-                onChange={(e) => setSelectedNetwork(e.target.value as Network)}
+                onChange={(e) => handleNetworkChange(e.target.value as Network)}
                 className="px-4 py-2 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="mainnet">Mainnet</option>

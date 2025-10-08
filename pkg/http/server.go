@@ -2,6 +2,13 @@ package http
 
 import (
 	"encoding/json"
+	"net/http"
+	"os"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/bsv-blockchain/teranode-p2p-poc/pkg/model"
 	"github.com/bsv-blockchain/teranode-p2p-poc/pkg/parser"
 	"github.com/bsv-blockchain/teranode-p2p-poc/pkg/service"
@@ -9,12 +16,6 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
-	"net/http"
-	"os"
-	"sort"
-	"strconv"
-	"strings"
-	"time"
 )
 
 // CORS middleware to handle Cross-Origin Resource Sharing
@@ -88,19 +89,219 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 			}
 		}
 
-		var messages []model.Message
-		query := db.Order("received_at desc").Limit(limit).Offset(offset)
+		// Since we now use specialized tables, we need to gather messages from each table
+		type GenericMessage struct {
+			ID         uint      `json:"ID"`
+			Topic      string    `json:"Topic"`
+			Data       string    `json:"Data"`
+			Network    string    `json:"Network"`
+			PeerID     string    `json:"PeerID"`
+			ReceivedAt time.Time `json:"ReceivedAt"`
+		}
+
+		var messages []GenericMessage
+
+		// Determine which table(s) to query based on topic
 		if topic != "" {
-			query = query.Where("topic = ?", topic)
+			// Extract message type from topic
+			parts := strings.Split(topic, "-")
+			if len(parts) >= 2 {
+				messageType := parts[len(parts)-1]
+				network := strings.Join(parts[:len(parts)-1], "-")
+
+				switch messageType {
+				case "block":
+					var blocks []model.Block
+					query := db.Table("blocks").Order("received_at DESC").Limit(limit).Offset(offset)
+					if peer != "" {
+						query = query.Where("peer_id = ?", peer)
+					}
+					if network != "" {
+						query = query.Where("network = ?", network)
+					}
+					if err := query.Find(&blocks).Error; err == nil {
+						for _, b := range blocks {
+							data, _ := json.Marshal(b)
+							messages = append(messages, GenericMessage{
+								ID:         uint(b.ID),
+								Topic:      topic,
+								Data:       string(data),
+								Network:    b.Network,
+								PeerID:     b.PeerID,
+								ReceivedAt: b.ReceivedAt,
+							})
+						}
+					}
+
+				case "subtree":
+					var subtrees []model.Subtree
+					query := db.Table("subtrees").Order("received_at DESC").Limit(limit).Offset(offset)
+					if peer != "" {
+						query = query.Where("peer_id = ?", peer)
+					}
+					if network != "" {
+						query = query.Where("network = ?", network)
+					}
+					if err := query.Find(&subtrees).Error; err == nil {
+						for _, s := range subtrees {
+							data, _ := json.Marshal(s)
+							messages = append(messages, GenericMessage{
+								ID:         uint(s.ID),
+								Topic:      topic,
+								Data:       string(data),
+								Network:    s.Network,
+								PeerID:     s.PeerID,
+								ReceivedAt: s.ReceivedAt,
+							})
+						}
+					}
+
+				case "node_status":
+					var nodeStatuses []model.NodeStatusPG
+					query := db.Table("node_statuses").Order("received_at DESC").Limit(limit).Offset(offset)
+					if peer != "" {
+						query = query.Where("peer_id = ?", peer)
+					}
+					if network != "" {
+						query = query.Where("network = ?", network)
+					}
+					if err := query.Find(&nodeStatuses).Error; err == nil {
+						for _, ns := range nodeStatuses {
+							data, _ := json.Marshal(ns)
+							messages = append(messages, GenericMessage{
+								ID:         uint(ns.ID),
+								Topic:      topic,
+								Data:       string(data),
+								Network:    ns.Network,
+								PeerID:     ns.PeerID,
+								ReceivedAt: ns.ReceivedAt,
+							})
+						}
+					}
+
+				case "rejected_tx":
+					var rejectedTxs []model.RejectedTx
+					query := db.Table("rejected_txes").Order("received_at DESC").Limit(limit).Offset(offset)
+					if peer != "" {
+						query = query.Where("peer_id = ?", peer)
+					}
+					if network != "" {
+						query = query.Where("network = ?", network)
+					}
+					if err := query.Find(&rejectedTxs).Error; err == nil {
+						for _, rt := range rejectedTxs {
+							data, _ := json.Marshal(rt)
+							messages = append(messages, GenericMessage{
+								ID:         uint(rt.ID),
+								Topic:      topic,
+								Data:       string(data),
+								Network:    rt.Network,
+								PeerID:     rt.PeerID,
+								ReceivedAt: rt.ReceivedAt,
+							})
+						}
+					}
+
+				// We can add handshake support for backward compatibility if needed
+				case "handshake":
+					var handshakes []model.Handshake
+					query := db.Table("handshakes").Order("received_at DESC").Limit(limit).Offset(offset)
+					if peer != "" {
+						query = query.Where("peer_id = ?", peer)
+					}
+					if network != "" {
+						query = query.Where("network = ?", network)
+					}
+					if err := query.Find(&handshakes).Error; err == nil {
+						for _, h := range handshakes {
+							data, _ := json.Marshal(h)
+							messages = append(messages, GenericMessage{
+								ID:         uint(h.ID),
+								Topic:      topic,
+								Data:       string(data),
+								Network:    h.Network,
+								PeerID:     h.PeerID,
+								ReceivedAt: h.ReceivedAt,
+							})
+						}
+					}
+				}
+			}
+		} else if peer != "" {
+			// If only peer is specified, we need to gather from all tables
+			// This is more complex, so we'll limit to the most common types
+
+			// Get blocks
+			var blocks []model.Block
+			db.Table("blocks").Where("peer_id = ?", peer).Order("received_at DESC").Limit(limit/5).Find(&blocks)
+			for _, b := range blocks {
+				data, _ := json.Marshal(b)
+				messages = append(messages, GenericMessage{
+					ID:         uint(b.ID),
+					Topic:      b.Network + "-block",
+					Data:       string(data),
+					Network:    b.Network,
+					PeerID:     b.PeerID,
+					ReceivedAt: b.ReceivedAt,
+				})
+			}
+
+			// Get subtrees
+			var subtrees []model.Subtree
+			db.Table("subtrees").Where("peer_id = ?", peer).Order("received_at DESC").Limit(limit/5).Find(&subtrees)
+			for _, s := range subtrees {
+				data, _ := json.Marshal(s)
+				messages = append(messages, GenericMessage{
+					ID:         uint(s.ID),
+					Topic:      s.Network + "-subtree",
+					Data:       string(data),
+					Network:    s.Network,
+					PeerID:     s.PeerID,
+					ReceivedAt: s.ReceivedAt,
+				})
+			}
+
+			// Get node statuses
+			var nodeStatuses []model.NodeStatusPG
+			db.Table("node_statuses").Where("peer_id = ?", peer).Order("received_at DESC").Limit(limit/5).Find(&nodeStatuses)
+			for _, ns := range nodeStatuses {
+				data, _ := json.Marshal(ns)
+				messages = append(messages, GenericMessage{
+					ID:         uint(ns.ID),
+					Topic:      ns.Network + "-node_status",
+					Data:       string(data),
+					Network:    ns.Network,
+					PeerID:     ns.PeerID,
+					ReceivedAt: ns.ReceivedAt,
+				})
+			}
+
+			// Get rejected transactions
+			var rejectedTxs []model.RejectedTx
+			db.Table("rejected_txes").Where("peer_id = ?", peer).Order("received_at DESC").Limit(limit/5).Find(&rejectedTxs)
+			for _, rt := range rejectedTxs {
+				data, _ := json.Marshal(rt)
+				messages = append(messages, GenericMessage{
+					ID:         uint(rt.ID),
+					Topic:      rt.Network + "-rejected_tx",
+					Data:       string(data),
+					Network:    rt.Network,
+					PeerID:     rt.PeerID,
+					ReceivedAt: rt.ReceivedAt,
+				})
+			}
+
+			// Sort all messages by ReceivedAt descending
+			sort.Slice(messages, func(i, j int) bool {
+				return messages[i].ReceivedAt.After(messages[j].ReceivedAt)
+			})
+
+			// Apply limit after sorting
+			if len(messages) > limit {
+				messages = messages[:limit]
+			}
 		}
-		if peer != "" {
-			query = query.Where("peer = ?", peer)
-		}
-		if err := query.Find(&messages).Error; err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("Database error: " + err.Error()))
-			return
-		}
+
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(messages)
 	}))
@@ -348,7 +549,7 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 
 		var blockHeaders []model.BlockHeader
 		query := db.Order("received_at desc").Limit(limit).Offset(offset)
-		
+
 		if network != "" {
 			query = query.Where("network = ?", network)
 		}
@@ -380,7 +581,7 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 				query = query.Where("timestamp <= ?", maxTimestamp)
 			}
 		}
-		
+
 		if err := query.Find(&blockHeaders).Error; err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
@@ -408,16 +609,16 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 	// Stats endpoint - returns message statistics from cache
 	http.HandleFunc("/api/stats", enableCORS(func(w http.ResponseWriter, r *http.Request) {
 		type TopicStat struct {
-			Topic       string `json:"topic"`
+			Topic        string `json:"topic"`
 			MessageCount int64  `json:"messageCount"`
-			Network     string `json:"network,omitempty"`
-			MessageType string `json:"messageType,omitempty"`
+			Network      string `json:"network,omitempty"`
+			MessageType  string `json:"messageType,omitempty"`
 		}
 
 		type PeerSummary struct {
-			PeerID        string `json:"peerID"`
-			MessageCount  int64  `json:"messageCount"`
-			LastSeen      string `json:"lastSeen"`
+			PeerID       string `json:"peerID"`
+			MessageCount int64  `json:"messageCount"`
+			LastSeen     string `json:"lastSeen"`
 		}
 
 		type Stats struct {
@@ -429,7 +630,7 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 			LastMessageTime   *string           `json:"lastMessageTime,omitempty"`
 			TopicStats        []TopicStat       `json:"topicStats"`
 			TopPeers          []PeerSummary     `json:"topPeers"`
-			CacheAge          int64             `json:"cacheAge"`      // Age of cache in seconds
+			CacheAge          int64             `json:"cacheAge"`          // Age of cache in seconds
 			CalculationTimeMs int64             `json:"calculationTimeMs"` // Time taken to calculate
 		}
 
@@ -443,7 +644,7 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 			})
 			return
 		}
-		
+
 		// Parse cached data
 		stats := Stats{
 			TotalMessages:     cachedStats.TotalMessages,
@@ -456,20 +657,20 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 			CalculationTimeMs: cachedStats.CalculationTimeMs,
 			CacheAge:          int64(time.Since(cachedStats.CalculatedAt).Seconds()),
 		}
-		
+
 		// Parse JSON fields
 		if cachedStats.LatestBlockHeights != "" {
 			json.Unmarshal([]byte(cachedStats.LatestBlockHeights), &stats.LatestBlockHeight)
 		}
-		
+
 		if cachedStats.TopicStats != "" {
 			json.Unmarshal([]byte(cachedStats.TopicStats), &stats.TopicStats)
 		}
-		
+
 		if cachedStats.TopPeers != "" {
 			json.Unmarshal([]byte(cachedStats.TopPeers), &stats.TopPeers)
 		}
-		
+
 		if cachedStats.LastMessageTime != nil {
 			timeStr := cachedStats.LastMessageTime.Format(time.RFC3339)
 			stats.LastMessageTime = &timeStr
@@ -482,19 +683,19 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 	// Peers endpoint - returns list of peers with statistics
 	http.HandleFunc("/api/peers", enableCORS(func(w http.ResponseWriter, r *http.Request) {
 		type PeerStat struct {
-			PeerID          string    `json:"peerID"`
-			TotalMessages   int64     `json:"totalMessages"`
-			FirstSeen       time.Time `json:"firstSeen"`
-			LastSeen        time.Time `json:"lastSeen"`
-			Networks        []string  `json:"networks"`
-			MessageTypes    map[string]int64 `json:"messageTypes"`
-			LastUserAgent   string    `json:"lastUserAgent,omitempty"`
-			LastBestHeight  uint32    `json:"lastBestHeight,omitempty"`
+			PeerID         string           `json:"peerID"`
+			TotalMessages  int64            `json:"totalMessages"`
+			FirstSeen      time.Time        `json:"firstSeen"`
+			LastSeen       time.Time        `json:"lastSeen"`
+			Networks       []string         `json:"networks"`
+			MessageTypes   map[string]int64 `json:"messageTypes"`
+			LastUserAgent  string           `json:"lastUserAgent,omitempty"`
+			LastBestHeight uint32           `json:"lastBestHeight,omitempty"`
 		}
 
 		// Get all unique peers
 		peerMap := make(map[string]*PeerStat)
-		
+
 		// Collect peers from messages table
 		type PeerInfo struct {
 			Peer      string
@@ -512,7 +713,7 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 				// Parse time strings - try multiple formats
 				var firstSeen, lastSeen time.Time
 				var err error
-				
+
 				// Try different time formats that SQLite might return
 				timeFormats := []string{
 					"2006-01-02 15:04:05",
@@ -520,7 +721,7 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 					"2006-01-02T15:04:05",
 					time.RFC3339,
 				}
-				
+
 				for _, format := range timeFormats {
 					if firstSeen, err = time.Parse(format, p.FirstSeen); err == nil {
 						break
@@ -529,7 +730,7 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 				if err != nil {
 					firstSeen = time.Now() // fallback
 				}
-				
+
 				for _, format := range timeFormats {
 					if lastSeen, err = time.Parse(format, p.LastSeen); err == nil {
 						break
@@ -538,7 +739,7 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 				if err != nil {
 					lastSeen = time.Now() // fallback
 				}
-				
+
 				peerMap[p.Peer] = &PeerStat{
 					PeerID:        p.Peer,
 					TotalMessages: p.Count,
@@ -559,7 +760,7 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 			FirstSeen string
 			LastSeen  string
 		}
-		
+
 		// Helper function to process specialized tables
 		processPeerTable := func(tableName, messageType string) {
 			var peers []PeerTableInfo
@@ -572,7 +773,7 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 					// Parse time strings - try multiple formats
 					var firstSeen, lastSeen time.Time
 					var err error
-					
+
 					// Try different time formats that SQLite might return
 					timeFormats := []string{
 						"2006-01-02 15:04:05",
@@ -580,7 +781,7 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 						"2006-01-02T15:04:05",
 						time.RFC3339,
 					}
-					
+
 					for _, format := range timeFormats {
 						if firstSeen, err = time.Parse(format, p.FirstSeen); err == nil {
 							break
@@ -589,7 +790,7 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 					if err != nil {
 						firstSeen = time.Now() // fallback
 					}
-					
+
 					for _, format := range timeFormats {
 						if lastSeen, err = time.Parse(format, p.LastSeen); err == nil {
 							break
@@ -598,7 +799,7 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 					if err != nil {
 						lastSeen = time.Now() // fallback
 					}
-					
+
 					if stat, exists := peerMap[p.PeerID]; exists {
 						stat.TotalMessages += p.Count
 						stat.MessageTypes[messageType] = stat.MessageTypes[messageType] + p.Count
@@ -640,25 +841,9 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 
 		// Process all message type tables
 		processPeerTable("blocks", "block")
-		processPeerTable("mining_ons", "miningon")
 		processPeerTable("subtrees", "subtree")
-		processPeerTable("handshakes", "handshake")
 		processPeerTable("rejected_txes", "rejected_tx")
-
-		// Get latest handshake info for each peer
-		// Use a subquery approach that works with SQLite
-		for peerID := range peerMap {
-			var handshake model.Handshake
-			if err := db.Table("handshakes").
-				Where("peer_id = ?", peerID).
-				Order("received_at DESC").
-				First(&handshake).Error; err == nil {
-				if stat, exists := peerMap[peerID]; exists {
-					stat.LastUserAgent = handshake.UserAgent
-					stat.LastBestHeight = handshake.BestHeight
-				}
-			}
-		}
+		processPeerTable("node_statuses", "node_status")
 
 		// Convert map to slice and sort by total messages
 		peers := make([]PeerStat, 0, len(peerMap))
@@ -667,7 +852,7 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 			sort.Strings(peer.Networks)
 			peers = append(peers, *peer)
 		}
-		
+
 		// Sort peers by total messages descending
 		sort.Slice(peers, func(i, j int) bool {
 			return peers[i].TotalMessages > peers[j].TotalMessages
@@ -728,7 +913,8 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 			LastSeen      time.Time              `json:"lastSeen"`
 			Networks      []string               `json:"networks"`
 			MessageTypes  map[string]int64       `json:"messageTypes"`
-			Handshakes    []model.Handshake      `json:"handshakes"`
+			Handshakes    []model.Handshake      `json:"handshakes"`    // Deprecated - kept for compatibility
+			NodeStatuses  []model.NodeStatusPG   `json:"nodeStatuses"`
 			RecentBlocks  []model.Block          `json:"recentBlocks"`
 			RecentMining  []model.MiningOn       `json:"recentMining"`
 			TimeStats     map[string]interface{} `json:"timeStats"`
@@ -740,8 +926,8 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 			MessageTypes: make(map[string]int64),
 			TimeStats:    make(map[string]interface{}),
 			// Initialize with zero times
-			FirstSeen:    time.Time{},
-			LastSeen:     time.Time{},
+			FirstSeen: time.Time{},
+			LastSeen:  time.Time{},
 		}
 
 		// Parse time strings - try multiple formats
@@ -775,11 +961,20 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 			detail.TotalMessages += subtreeCount
 		}
 
+		// Handshake count (deprecated but kept for compatibility)
 		var handshakeCount int64
 		db.Table("handshakes").Where("peer_id = ?", peerID).Count(&handshakeCount)
 		if handshakeCount > 0 {
 			detail.MessageTypes["handshake"] = handshakeCount
 			detail.TotalMessages += handshakeCount
+		}
+
+		// Node status count
+		var nodeStatusCount int64
+		db.Table("node_statuses").Where("peer_id = ?", peerID).Count(&nodeStatusCount)
+		if nodeStatusCount > 0 {
+			detail.MessageTypes["node_status"] = nodeStatusCount
+			detail.TotalMessages += nodeStatusCount
 		}
 
 		var rejectedCount int64
@@ -791,14 +986,14 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 
 		// Get networks this peer participates in
 		networkMap := make(map[string]bool)
-		
+
 		// Check each table for networks
 		var networks []string
 		db.Table("blocks").Where("peer_id = ? AND network != ''", peerID).Distinct("network").Pluck("network", &networks)
 		for _, n := range networks {
 			networkMap[n] = true
 		}
-		
+
 		db.Table("mining_ons").Where("peer_id = ? AND network != ''", peerID).Distinct("network").Pluck("network", &networks)
 		for _, n := range networks {
 			networkMap[n] = true
@@ -824,12 +1019,19 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 		}
 		sort.Strings(detail.Networks)
 
-		// Get all handshakes from this peer
+		// Get all handshakes from this peer (deprecated - kept for compatibility)
 		db.Table("handshakes").
 			Where("peer_id = ?", peerID).
 			Order("received_at DESC").
 			Limit(10).
 			Find(&detail.Handshakes)
+
+		// Get recent node status updates from this peer
+		db.Table("node_statuses").
+			Where("peer_id = ?", peerID).
+			Order("received_at DESC").
+			Limit(10).
+			Find(&detail.NodeStatuses)
 
 		// Get recent blocks
 		db.Table("blocks").
@@ -853,7 +1055,7 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 			Count int64  `gorm:"column:count"`
 		}
 		var hourlyCounts []HourlyCount
-		
+
 		// This query groups messages by hour (using SQLite's strftime)
 		db.Table("messages").
 			Select("strftime('%Y-%m-%d %H:00:00', received_at) as hour, COUNT(*) as count").
@@ -885,17 +1087,17 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 			if count > 0 {
 				log.Printf("[PeerDetail] Table %s has %d records for peer %s", tableName, count, peerID)
 			}
-			
+
 			if err := db.Table(tableName).
 				Select("MIN(received_at) as first_seen, MAX(received_at) as last_seen").
 				Where("peer_id = ?", peerID).
 				Scan(&times).Error; err == nil {
-				
+
 				if times.FirstSeen != "" || times.LastSeen != "" {
-					log.Printf("[PeerDetail] Table %s times for peer %s: first=%s, last=%s", 
+					log.Printf("[PeerDetail] Table %s times for peer %s: first=%s, last=%s",
 						tableName, peerID, times.FirstSeen, times.LastSeen)
 				}
-				
+
 				// Parse time strings
 				var firstSeen, lastSeen time.Time
 				if times.FirstSeen != "" {
@@ -906,7 +1108,7 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 						}
 					}
 				}
-				
+
 				if times.LastSeen != "" {
 					for _, format := range timeFormats {
 						if t, err := time.Parse(format, times.LastSeen); err == nil {
@@ -915,14 +1117,14 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 						}
 					}
 				}
-				
+
 				if !firstSeen.IsZero() && (detail.FirstSeen.IsZero() || firstSeen.Before(detail.FirstSeen)) {
-					log.Printf("[PeerDetail] Updating FirstSeen from %s: %v -> %v", 
+					log.Printf("[PeerDetail] Updating FirstSeen from %s: %v -> %v",
 						tableName, detail.FirstSeen, firstSeen)
 					detail.FirstSeen = firstSeen
 				}
 				if !lastSeen.IsZero() && lastSeen.After(detail.LastSeen) {
-					log.Printf("[PeerDetail] Updating LastSeen from %s: %v -> %v", 
+					log.Printf("[PeerDetail] Updating LastSeen from %s: %v -> %v",
 						tableName, detail.LastSeen, lastSeen)
 					detail.LastSeen = lastSeen
 				}
@@ -950,7 +1152,7 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 			http.FileServer(http.Dir("./frontend-react/build")).ServeHTTP(w, r)
 			return
 		}
-		
+
 		// For any non-existent path, serve index.html (for React Router)
 		// This enables client-side routing
 		if _, err := os.Stat("./frontend-react/build/index.html"); err == nil {

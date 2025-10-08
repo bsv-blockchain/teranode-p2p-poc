@@ -29,11 +29,6 @@ const typeInfo: Record<MessageType | 'all', { label: string; icon: string; descr
     icon: '🌳', 
     description: 'Transaction batch announcements' 
   },
-  handshake: { 
-    label: 'Handshakes', 
-    icon: '🤝', 
-    description: 'Peer connection handshakes' 
-  },
   rejected_tx: {
     label: 'Rejected TX',
     icon: '❌',

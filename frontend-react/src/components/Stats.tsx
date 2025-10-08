@@ -67,6 +67,7 @@ const Stats: React.FC = () => {
       case 'subtree': return '🌳';
       case 'handshake': return '🤝';
       case 'rejected_tx': return '❌';
+      case 'node_status': return '🖥️';
       case 'bestblock': return '🏆';
       default: return '📦';
     }

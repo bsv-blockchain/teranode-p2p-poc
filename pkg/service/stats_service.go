@@ -3,12 +3,13 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
+	"time"
+
 	"github.com/bsv-blockchain/teranode-p2p-poc/pkg/model"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"gorm.io/gorm"
-	"sort"
-	"time"
 )
 
 // StatsService handles calculating and caching statistics
@@ -43,15 +44,15 @@ type PeerSummary struct {
 // CalculateStats calculates all statistics and stores them in cache
 func (s *StatsService) CalculateStats() error {
 	startTime := time.Now()
-	
+
 	stats := &model.StatsCache{
 		CalculatedAt: startTime,
 	}
-	
+
 	// Count messages from all tables
-	tables := []string{"blocks", "mining_ons", "subtrees", "handshakes", "rejected_txes", "best_block_requests"}
+	tables := []string{"blocks", "mining_ons", "subtrees", "node_statuses", "rejected_txes", "best_block_requests"}
 	tableCounts := make(map[string]int64)
-	
+
 	for _, table := range tables {
 		var count int64
 		if err := s.db.Table(table).Count(&count).Error; err == nil {
@@ -59,12 +60,12 @@ func (s *StatsService) CalculateStats() error {
 			stats.TotalMessages += count
 		}
 	}
-	
+
 	// Store table counts as JSON
 	if tableCountsJSON, err := json.Marshal(tableCounts); err == nil {
 		stats.MessageCountByTable = string(tableCountsJSON)
 	}
-	
+
 	// Count messages from last 24 hours
 	twentyFourHoursAgo := time.Now().Add(-24 * time.Hour)
 	for _, table := range tables {
@@ -73,58 +74,58 @@ func (s *StatsService) CalculateStats() error {
 			stats.MessagesToday += todayCount
 		}
 	}
-	
+
 	// Get unique topics - PostgreSQL doesn't have a messages table, topics are handled via networks
 	// Count unique networks instead
 	networks := viper.GetStringSlice("networks")
 	stats.UniqueTopics = len(networks)
-	
+
 	// Calculate topic statistics
 	topicStats := s.calculateTopicStats()
 	if topicStatsJSON, err := json.Marshal(topicStats); err == nil {
 		stats.TopicStats = string(topicStatsJSON)
 	}
-	
+
 	// Calculate network activity
 	networkActivity := s.calculateNetworkActivity(topicStats)
 	if networkActivityJSON, err := json.Marshal(networkActivity); err == nil {
 		stats.NetworkActivity = string(networkActivityJSON)
 	}
-	
+
 	// Get unique peers
 	peerCount := s.countUniquePeers()
 	stats.UniquePeers = peerCount
-	
+
 	// Get latest block heights
 	latestHeights := s.getLatestBlockHeights()
 	if heightsJSON, err := json.Marshal(latestHeights); err == nil {
 		stats.LatestBlockHeights = string(heightsJSON)
 	}
-	
+
 	// Get top peers
 	topPeers := s.getTopPeers()
 	if topPeersJSON, err := json.Marshal(topPeers); err == nil {
 		stats.TopPeers = string(topPeersJSON)
 	}
-	
+
 	// Get last message time
 	lastMessageTime := s.getLastMessageTime()
 	if !lastMessageTime.IsZero() {
 		stats.LastMessageTime = &lastMessageTime
 	}
-	
+
 	// Calculate time taken
 	stats.CalculationTimeMs = time.Since(startTime).Milliseconds()
-	
+
 	// Store in database (delete old entries first)
 	if err := s.db.Where("1 = 1").Delete(&model.StatsCache{}).Error; err != nil {
 		return fmt.Errorf("failed to clear old stats: %w", err)
 	}
-	
+
 	if err := s.db.Create(stats).Error; err != nil {
 		return fmt.Errorf("failed to save stats: %w", err)
 	}
-	
+
 	s.log.Infof("Statistics calculated in %dms", stats.CalculationTimeMs)
 	return nil
 }
@@ -138,12 +139,12 @@ func (s *StatsService) calculateTopicStats() []TopicStat {
 
 	// Add counts from specialized tables
 	s.addSpecializedTableCounts(&topicStats)
-	
+
 	// Sort by message count descending
 	sort.Slice(topicStats, func(i, j int) bool {
 		return topicStats[i].MessageCount > topicStats[j].MessageCount
 	})
-	
+
 	return topicStats
 }
 
@@ -168,13 +169,13 @@ func (s *StatsService) addSpecializedTableCounts(topicStats *[]TopicStat) {
 			})
 		}
 	}
-	
+
 	// Count blocks by network
 	type NetworkCount struct {
 		Network string
 		Count   int64
 	}
-	
+
 	var blockCounts []NetworkCount
 	if err := s.db.Table("blocks").
 		Select("network, COUNT(*) as count").
@@ -187,7 +188,7 @@ func (s *StatsService) addSpecializedTableCounts(topicStats *[]TopicStat) {
 			}
 		}
 	}
-	
+
 	// Count mining messages
 	var miningCounts []NetworkCount
 	if err := s.db.Table("mining_ons").
@@ -201,7 +202,7 @@ func (s *StatsService) addSpecializedTableCounts(topicStats *[]TopicStat) {
 			}
 		}
 	}
-	
+
 	// Count subtrees
 	var subtreeCounts []NetworkCount
 	if err := s.db.Table("subtrees").
@@ -215,21 +216,21 @@ func (s *StatsService) addSpecializedTableCounts(topicStats *[]TopicStat) {
 			}
 		}
 	}
-	
+
 	// Count handshakes
-	var handshakeCounts []NetworkCount
-	if err := s.db.Table("handshakes").
+	var nodeStatusCounts []NetworkCount
+	if err := s.db.Table("node_statuses").
 		Select("network, COUNT(*) as count").
 		Group("network").
-		Find(&handshakeCounts).Error; err == nil {
-		for _, nc := range handshakeCounts {
+		Find(&nodeStatusCounts).Error; err == nil {
+		for _, nc := range nodeStatusCounts {
 			if nc.Network != "" {
-				topic := "bitcoin/" + nc.Network + "-handshake"
-				updateOrAdd(topic, nc.Network, "handshake", nc.Count)
+				topic := "bitcoin/" + nc.Network + "-node_status"
+				updateOrAdd(topic, nc.Network, "node_status", nc.Count)
 			}
 		}
 	}
-	
+
 	// Count rejected transactions
 	var rejectedTxCounts []NetworkCount
 	if err := s.db.Table("rejected_txes").
@@ -243,7 +244,7 @@ func (s *StatsService) addSpecializedTableCounts(topicStats *[]TopicStat) {
 			}
 		}
 	}
-	
+
 	// Count best block requests
 	var bestBlockCounts []NetworkCount
 	if err := s.db.Table("best_block_requests").
@@ -262,20 +263,20 @@ func (s *StatsService) addSpecializedTableCounts(topicStats *[]TopicStat) {
 // calculateNetworkActivity calculates total messages per network
 func (s *StatsService) calculateNetworkActivity(topicStats []TopicStat) map[string]int64 {
 	networkActivity := make(map[string]int64)
-	
+
 	for _, ts := range topicStats {
 		if ts.Network != "" {
 			networkActivity[ts.Network] += ts.MessageCount
 		}
 	}
-	
+
 	return networkActivity
 }
 
 // countUniquePeers counts unique peers across all tables
 func (s *StatsService) countUniquePeers() int {
 	peerMap := make(map[string]bool)
-	
+
 	// From messages table
 	var messagePeers []string
 	if err := s.db.Table("messages").Distinct("peer").Pluck("peer", &messagePeers).Error; err == nil {
@@ -285,7 +286,7 @@ func (s *StatsService) countUniquePeers() int {
 			}
 		}
 	}
-	
+
 	// From other tables (peer_id field)
 	var peerIDs []string
 	for _, table := range []string{"blocks", "mining_ons", "subtrees", "handshakes", "rejected_txes", "best_block_requests"} {
@@ -298,14 +299,14 @@ func (s *StatsService) countUniquePeers() int {
 			}
 		}
 	}
-	
+
 	return len(peerMap)
 }
 
 // getLatestBlockHeights gets the latest block height for each network
 func (s *StatsService) getLatestBlockHeights() map[string]uint32 {
 	heights := make(map[string]uint32)
-	
+
 	var blocks []model.Block
 	if err := s.db.Table("blocks").
 		Select("network, MAX(height) as height").
@@ -317,14 +318,14 @@ func (s *StatsService) getLatestBlockHeights() map[string]uint32 {
 			}
 		}
 	}
-	
+
 	return heights
 }
 
 // getTopPeers gets the most active peers
 func (s *StatsService) getTopPeers() []PeerSummary {
 	var topPeers []PeerSummary
-	
+
 	// Complex query to get peer activity across all tables
 	query := `
 		WITH peer_activity AS (
@@ -370,13 +371,13 @@ func (s *StatsService) getTopPeers() []PeerSummary {
 		ORDER BY total_messages DESC
 		LIMIT 10
 	`
-	
+
 	type PeerActivity struct {
 		PeerID        string
 		TotalMessages int64
-		LastSeen      string  // SQLite returns string for datetime
+		LastSeen      string // SQLite returns string for datetime
 	}
-	
+
 	var peerActivities []PeerActivity
 	if err := s.db.Raw(query).Scan(&peerActivities).Error; err == nil {
 		for _, pa := range peerActivities {
@@ -394,7 +395,7 @@ func (s *StatsService) getTopPeers() []PeerSummary {
 					break
 				}
 			}
-			
+
 			topPeers = append(topPeers, PeerSummary{
 				PeerID:       pa.PeerID,
 				MessageCount: pa.TotalMessages,
@@ -404,7 +405,7 @@ func (s *StatsService) getTopPeers() []PeerSummary {
 	} else {
 		s.log.Warnf("Failed to get top peers: %v", err)
 	}
-	
+
 	return topPeers
 }
 

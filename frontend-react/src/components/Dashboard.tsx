@@ -55,11 +55,8 @@ export const Dashboard: React.FC = () => {
       
       // Check if message matches current filters
       const messageNetwork = message.Topic.split('/')[3]?.split('-')[0];
-      console.log(messageNetwork)
       const messageType = message.Topic.split('-')[1];
-      console.log(messageType)
-      
-      
+
       const matchesNetwork = selectedNetwork === 'all' || messageNetwork === selectedNetwork;
       const matchesType = selectedMessageType === 'all' || messageType === selectedMessageType;
       
@@ -178,13 +175,8 @@ export const Dashboard: React.FC = () => {
     switch (messageType) {
       case 'block':
         return <BlockCard key={item.ID || index} block={item as Block} isNew={isNew} />;
-      // Temporarily disabling miningon message type
-      // case 'miningon':
-      //   return <MiningCard key={item.ID || index} mining={item as MiningOn} isNew={isNew} />;
       case 'subtree':
         return <SubtreeCard key={item.ID || index} subtree={item as Subtree} isNew={isNew} />;
-      case 'handshake':
-        return <HandshakeCard key={item.ID || index} handshake={item as Handshake} isNew={isNew} />;
       case 'rejected_tx':
         return <RejectedTxCard key={item.ID || index} rejectedTx={item as RejectedTx} isNew={isNew} />;
       case 'node_status':
