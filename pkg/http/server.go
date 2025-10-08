@@ -2,6 +2,7 @@ package http
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"sort"
@@ -696,60 +697,8 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 		// Get all unique peers
 		peerMap := make(map[string]*PeerStat)
 
-		// Collect peers from messages table
-		type PeerInfo struct {
-			Peer      string
-			Count     int64
-			FirstSeen string
-			LastSeen  string
-		}
-		var messagePeers []PeerInfo
-		if err := db.Table("messages").
-			Select("peer, COUNT(*) as count, MIN(received_at) as first_seen, MAX(received_at) as last_seen").
-			Where("peer != ''").
-			Group("peer").
-			Find(&messagePeers).Error; err == nil {
-			for _, p := range messagePeers {
-				// Parse time strings - try multiple formats
-				var firstSeen, lastSeen time.Time
-				var err error
-
-				// Try different time formats that SQLite might return
-				timeFormats := []string{
-					"2006-01-02 15:04:05",
-					"2006-01-02T15:04:05Z",
-					"2006-01-02T15:04:05",
-					time.RFC3339,
-				}
-
-				for _, format := range timeFormats {
-					if firstSeen, err = time.Parse(format, p.FirstSeen); err == nil {
-						break
-					}
-				}
-				if err != nil {
-					firstSeen = time.Now() // fallback
-				}
-
-				for _, format := range timeFormats {
-					if lastSeen, err = time.Parse(format, p.LastSeen); err == nil {
-						break
-					}
-				}
-				if err != nil {
-					lastSeen = time.Now() // fallback
-				}
-
-				peerMap[p.Peer] = &PeerStat{
-					PeerID:        p.Peer,
-					TotalMessages: p.Count,
-					FirstSeen:     firstSeen,
-					LastSeen:      lastSeen,
-					Networks:      []string{},
-					MessageTypes:  make(map[string]int64),
-				}
-			}
-		}
+		// Skip querying the non-existent messages table - the database has been optimized
+		// to use specialized tables (blocks, subtrees, node_statuses, rejected_txes)
 
 		// Add data from specialized tables
 		// Blocks
@@ -761,43 +710,38 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 			LastSeen  string
 		}
 
-		// Helper function to process specialized tables
+		// Optimized helper function to process specialized tables with less memory overhead
 		processPeerTable := func(tableName, messageType string) {
 			var peers []PeerTableInfo
-			if err := db.Table(tableName).
-				Select("peer_id, network, COUNT(*) as count, MIN(received_at) as first_seen, MAX(received_at) as last_seen").
-				Where("peer_id != ''").
-				Group("peer_id, network").
-				Find(&peers).Error; err == nil {
+			// Use raw SQL for better performance with large datasets
+			query := fmt.Sprintf(`
+				SELECT peer_id, network, COUNT(*) as count,
+				       MIN(received_at) as first_seen,
+				       MAX(received_at) as last_seen
+				FROM %s
+				WHERE peer_id != ''
+				GROUP BY peer_id, network`, tableName)
+
+			if err := db.Raw(query).Scan(&peers).Error; err == nil {
 				for _, p := range peers {
-					// Parse time strings - try multiple formats
+					// Use Go's built-in time parsing which handles SQLite format
 					var firstSeen, lastSeen time.Time
-					var err error
 
-					// Try different time formats that SQLite might return
-					timeFormats := []string{
-						"2006-01-02 15:04:05",
-						"2006-01-02T15:04:05Z",
-						"2006-01-02T15:04:05",
-						time.RFC3339,
+					// SQLite returns timestamps in RFC3339 format by default
+					firstSeen, _ = time.Parse(time.RFC3339, p.FirstSeen)
+					if firstSeen.IsZero() {
+						firstSeen, _ = time.Parse("2006-01-02 15:04:05", p.FirstSeen)
 					}
-
-					for _, format := range timeFormats {
-						if firstSeen, err = time.Parse(format, p.FirstSeen); err == nil {
-							break
-						}
-					}
-					if err != nil {
-						firstSeen = time.Now() // fallback
+					if firstSeen.IsZero() {
+						firstSeen = time.Now()
 					}
 
-					for _, format := range timeFormats {
-						if lastSeen, err = time.Parse(format, p.LastSeen); err == nil {
-							break
-						}
+					lastSeen, _ = time.Parse(time.RFC3339, p.LastSeen)
+					if lastSeen.IsZero() {
+						lastSeen, _ = time.Parse("2006-01-02 15:04:05", p.LastSeen)
 					}
-					if err != nil {
-						lastSeen = time.Now() // fallback
+					if lastSeen.IsZero() {
+						lastSeen = time.Now()
 					}
 
 					if stat, exists := peerMap[p.PeerID]; exists {
@@ -836,6 +780,8 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 						peerMap[p.PeerID].MessageTypes[messageType] = p.Count
 					}
 				}
+			} else if err != nil {
+				logrus.Printf("Error querying %s table for peer stats: %v", tableName, err)
 			}
 		}
 
@@ -844,6 +790,46 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 		processPeerTable("subtrees", "subtree")
 		processPeerTable("rejected_txes", "rejected_tx")
 		processPeerTable("node_statuses", "node_status")
+
+		// Get latest user agent and best height from node_statuses for each peer
+		type NodeStatusInfo struct {
+			PeerID      string
+			UserAgent   string
+			BestHeight  uint32
+		}
+		var nodeStatuses []NodeStatusInfo
+		query := `
+			SELECT DISTINCT ON (peer_id)
+			       peer_id,
+			       user_agent,
+			       best_height
+			FROM node_statuses
+			WHERE peer_id != ''
+			ORDER BY peer_id, received_at DESC`
+
+		if db.Dialector.Name() == "sqlite" {
+			// SQLite doesn't support DISTINCT ON, use a different approach
+			query = `
+				SELECT peer_id, user_agent, best_height
+				FROM node_statuses ns1
+				WHERE peer_id != ''
+				  AND received_at = (
+				    SELECT MAX(received_at)
+				    FROM node_statuses ns2
+				    WHERE ns2.peer_id = ns1.peer_id
+				  )`
+		}
+
+		if err := db.Raw(query).Scan(&nodeStatuses).Error; err == nil {
+			for _, ns := range nodeStatuses {
+				if stat, exists := peerMap[ns.PeerID]; exists {
+					stat.LastUserAgent = ns.UserAgent
+					stat.LastBestHeight = ns.BestHeight
+				}
+			}
+		} else {
+			logrus.Printf("Error querying node_statuses for user agent and best height: %v", err)
+		}
 
 		// Convert map to slice and sort by total messages
 		peers := make([]PeerStat, 0, len(peerMap))
