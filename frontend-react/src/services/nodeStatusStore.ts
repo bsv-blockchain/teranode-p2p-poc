@@ -11,7 +11,7 @@ class NodeStatusStore {
 
   constructor() {
     // Initialize maps for each network
-    const networks: Network[] = ['mainnet', 'testnet', 'teratestnet', 'tstn'];
+    const networks: Network[] = ['mainnet', 'testnet', 'teratestnet'];
     networks.forEach(network => {
       this.nodeStatuses.set(network, new Map());
     });

@@ -66,7 +66,6 @@ const Peers: React.FC = () => {
       case 'regtest': return 'from-purple-400 to-purple-600';
       case 'stn': return 'from-orange-400 to-orange-600';
       case 'teratestnet': return 'from-pink-400 to-pink-600';
-      case 'tstn': return 'from-indigo-400 to-indigo-600';
       default: return 'from-gray-400 to-gray-600';
     }
   };
@@ -77,7 +76,6 @@ const Peers: React.FC = () => {
       // case 'miningon': return '⛏️'; // Temporarily disabled
       case 'subtree': return '🌳';
       case 'handshake': return '🤝';
-      case 'rejected_tx': return '❌';
       case 'node_status': return '🖥️';
       case 'bestblock': return '🏆';
       default: return '📦';

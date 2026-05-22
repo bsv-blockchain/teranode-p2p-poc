@@ -1,12 +1,10 @@
 import { ApiService } from './api';
-import { 
-  DashboardFilters, 
+import {
+  DashboardFilters,
   PaginationInfo,
   Block,
-  MiningOn,
   Subtree,
-  Handshake,
-  RejectedTx
+  Handshake
 } from '../types/Message';
 
 interface AggregatedMessage {
@@ -23,20 +21,16 @@ export class MessageAggregatorService {
 
     try {
       // Fetch from all specialized endpoints in parallel
-      const [blocks, /* mining, */ subtrees, handshakes, rejectedTx] = await Promise.all([
+      const [blocks, subtrees, handshakes] = await Promise.all([
         this.fetchWithErrorHandling(() => ApiService.getBlocks({ ...filters, limit: 100, page: 1 })),
-        // this.fetchWithErrorHandling(() => ApiService.getMiningMessages({ ...filters, limit: 100, page: 1 })), // Temporarily disabled
         this.fetchWithErrorHandling(() => ApiService.getSubtrees({ ...filters, limit: 100, page: 1 })),
-        this.fetchWithErrorHandling(() => ApiService.getHandshakes({ ...filters, limit: 100, page: 1 })),
-        this.fetchWithErrorHandling(() => ApiService.getRejectedTransactions({ ...filters, limit: 100, page: 1 }))
+        this.fetchWithErrorHandling(() => ApiService.getHandshakes({ ...filters, limit: 100, page: 1 }))
       ]);
 
       console.log('Fetched data from specialized endpoints:', {
         blocks: blocks?.data?.length || 0,
-        // mining: mining?.data?.length || 0, // Temporarily disabled
         subtrees: subtrees?.data?.length || 0,
-        handshakes: handshakes?.data?.length || 0,
-        rejectedTx: rejectedTx?.data?.length || 0
+        handshakes: handshakes?.data?.length || 0
       });
 
 
@@ -53,17 +47,6 @@ export class MessageAggregatorService {
           });
         });
       }
-
-      // Temporarily disabled mining messages
-      // if (mining?.data) {
-      //   mining.data.forEach((miningMsg: MiningOn) => {
-      //     aggregatedMessages.push({
-      //       data: miningMsg,
-      //       type: 'miningon',
-      //       sortKey: miningMsg.ReceivedAt
-      //     });
-      //   });
-      // }
 
       // Add subtrees
       if (subtrees?.data) {
@@ -83,17 +66,6 @@ export class MessageAggregatorService {
             data: handshake,
             type: 'handshake',
             sortKey: handshake.ReceivedAt
-          });
-        });
-      }
-
-      // Add rejected transactions
-      if (rejectedTx?.data) {
-        rejectedTx.data.forEach((tx: RejectedTx) => {
-          aggregatedMessages.push({
-            data: tx,
-            type: 'rejected_tx',
-            sortKey: tx.ReceivedAt
           });
         });
       }

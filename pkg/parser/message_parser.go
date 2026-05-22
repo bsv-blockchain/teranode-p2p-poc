@@ -17,7 +17,6 @@ const (
 	TypeMiningOn   MessageType = "miningon"
 	TypeSubtree    MessageType = "subtree"
 	TypeHandshake  MessageType = "handshake"
-	TypeRejectedTx MessageType = "rejected_tx"
 	TypeNodeStatus MessageType = "node_status"
 )
 
@@ -101,14 +100,6 @@ func ParseMessage(topic string, data []byte) (*ParsedMessage, error) {
 		}
 		result.Data = msg
 
-	case "rejected_tx":
-		result.Type = TypeRejectedTx
-		var msg p2p.RejectedTxMessage
-		if err := json.Unmarshal(data, &msg); err != nil {
-			return nil, fmt.Errorf("failed to parse rejected_tx message: %w", err)
-		}
-		result.Data = msg
-
 	case "node_status":
 		result.Type = TypeNodeStatus
 		var msg NodeStatusMessage
@@ -126,15 +117,12 @@ func ParseMessage(topic string, data []byte) (*ParsedMessage, error) {
 
 // GetNetworks returns all supported networks
 func GetNetworks() []string {
-	// Return only the networks we want to show in the UI
-	return []string{"mainnet", "testnet", "teratestnet", "tstn"}
+	return []string{"mainnet", "testnet", "teratestnet"}
 }
 
 // GetMessageTypes returns all supported message types
 func GetMessageTypes() []string {
-	// Temporarily removing "miningon" from visible message types
-	// return []string{"bestblock", "block", "miningon", "subtree", "handshake", "rejected_tx", "node_status"}
-	return []string{"block", "subtree", "rejected_tx", "node_status"}
+	return []string{"block", "subtree", "node_status"}
 }
 
 // GenerateTopics generates all topic combinations for the given networks

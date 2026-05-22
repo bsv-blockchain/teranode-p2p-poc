@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Message, ApiResponse, Block, MiningOn, Subtree, Handshake, RejectedTx, NodeStatus } from '../types/Message';
+import { Message, ApiResponse, Block, Subtree, Handshake, NodeStatus } from '../types/Message';
 import { ApiService } from '../services/api';
 import { MessageParser } from '../utils/messageParser';
-import { BlockCard, /* MiningCard, */ SubtreeCard, HandshakeCard, RejectedTxCard, NodeStatusCard } from './MessageCards';
+import { BlockCard, SubtreeCard, HandshakeCard, NodeStatusCard } from './MessageCards';
 import Pagination from './Pagination';
 
 interface MessageListSectionProps {
@@ -132,8 +132,6 @@ export const MessageListSection: React.FC<MessageListSectionProps> = ({ peerID, 
                 return <SubtreeCard key={message.ID} subtree={parsedMessage as Subtree} isNew={false} />;
               case 'handshake':
                 return <HandshakeCard key={message.ID} handshake={parsedMessage as Handshake} isNew={false} />;
-              case 'rejected_tx':
-                return <RejectedTxCard key={message.ID} rejectedTx={parsedMessage as RejectedTx} isNew={false} />;
               case 'node_status':
                 return <NodeStatusCard key={message.ID} nodeStatus={parsedMessage as NodeStatus} isNew={false} />;
               default:

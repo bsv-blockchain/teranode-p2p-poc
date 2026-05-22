@@ -1,5 +1,5 @@
 import React from 'react';
-import { Block, MiningOn, Subtree, Handshake, RejectedTx, NodeStatus } from '../types/Message';
+import { Block, MiningOn, Subtree, Handshake, NodeStatus } from '../types/Message';
 import { ClickablePeerNameDisplay } from './ClickablePeerNameDisplay';
 
 interface MessageCardBaseProps {
@@ -49,8 +49,7 @@ const MessageCardBase: React.FC<MessageCardBaseProps> = ({
       testnet: 'bg-green-100 text-green-800',
       regtest: 'bg-purple-100 text-purple-800',
       stn: 'bg-blue-100 text-blue-800',
-      teratestnet: 'bg-indigo-100 text-indigo-800',
-      tstn: 'bg-pink-100 text-pink-800'
+      teratestnet: 'bg-indigo-100 text-indigo-800'
     };
     return colors[network] || 'bg-gray-100 text-gray-800';
   };
@@ -298,38 +297,6 @@ export const HandshakeCard: React.FC<HandshakeCardProps> = ({ handshake, isNew }
         <span className="text-sm font-medium text-gray-500">User Agent</span>
         <p className="text-sm text-gray-900">{handshake.UserAgent || 'Unknown'}</p>
       </div>
-  </MessageCardBase>
-);
-
-interface RejectedTxCardProps {
-  rejectedTx: RejectedTx;
-  isNew?: boolean;
-}
-
-export const RejectedTxCard: React.FC<RejectedTxCardProps> = ({ rejectedTx, isNew }) => (
-  <MessageCardBase
-    icon="❌"
-    title="Rejected Transaction"
-    network={rejectedTx.Network}
-    receivedAt={rejectedTx.ReceivedAt}
-    isNew={isNew}
-    className="border-l-4 border-l-red-400"
-    sentFromPeer={rejectedTx.sentFromPeer}
-    peerID={rejectedTx.PeerID}
-  >
-    <div>
-      <span className="text-sm font-medium text-gray-500">Transaction ID</span>
-      <p className="font-mono text-sm text-gray-900 truncate" title={rejectedTx.TxID || ''}>
-        {rejectedTx.TxID || 'N/A'}
-      </p>
-    </div>
-
-    <div>
-      <span className="text-xs sm:text-sm font-medium text-gray-500">Reason</span>
-      <p className="text-xs sm:text-sm text-gray-900 bg-red-50 p-2 rounded break-words">
-        {rejectedTx.Reason || 'No reason provided'}
-      </p>
-    </div>
   </MessageCardBase>
 );
 

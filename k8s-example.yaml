@@ -12,7 +12,6 @@ data:
         - "/dnsaddr/mainnet.bootstrap.teranode.bsvb.tech"
         - "/dnsaddr/testnet.bootstrap.teranode.bsvb.tech"
         - "/dnsaddr/teratestnet.bootstrap.teranode.bsvb.tech"
-        - "/dnsaddr/tstn.bootstrap.teranode.bsvb.tech"
       dht_mode: "off"
       announce_addrs: []
       peer_cache_file: ""
@@ -23,7 +22,6 @@ data:
       - "bitcoin/mainnet-mining_on"
       - "bitcoin/mainnet-subtree"
       - "bitcoin/mainnet-handshake"
-      - "bitcoin/mainnet-rejected_tx"
       - "bitcoin/mainnet-bestblock"
 ---
 apiVersion: v1

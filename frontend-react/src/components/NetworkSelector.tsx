@@ -13,8 +13,7 @@ const networkInfo: Record<Network | 'all', { label: string; color: string; bgCol
   testnet: { label: 'Testnet', color: 'text-green-700', bgColor: 'bg-green-100', ringColor: 'ring-green-500' },
   regtest: { label: 'Regtest', color: 'text-purple-700', bgColor: 'bg-purple-100', ringColor: 'ring-purple-500' },
   stn: { label: 'STN', color: 'text-bsv-accent', bgColor: 'bg-blue-100', ringColor: 'ring-bsv-accent' },
-  teratestnet: { label: 'TeraTestnet', color: 'text-indigo-700', bgColor: 'bg-indigo-100', ringColor: 'ring-indigo-500' },
-  tstn: { label: 'TeraScalingTestNet', color: 'text-orange-700', bgColor: 'bg-orange-100', ringColor: 'ring-orange-500' },
+  teratestnet: { label: 'Teratestnet', color: 'text-indigo-700', bgColor: 'bg-indigo-100', ringColor: 'ring-indigo-500' },
 };
 
 export const NetworkSelector: React.FC<NetworkSelectorProps> = ({ 

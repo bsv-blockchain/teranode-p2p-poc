@@ -25,7 +25,6 @@ type BatchInsertService struct {
 	handshakeBuffer   []model.HandshakePG
 	miningOnBuffer    []model.MiningOnPG
 	subtreeBuffer     []model.SubtreePG
-	rejectedTxBuffer  []model.RejectedTxPG
 	bestBlockBuffer   []model.BestBlockRequestPG
 	nodeStatusBuffer  []model.NodeStatusPG
 
@@ -35,7 +34,6 @@ type BatchInsertService struct {
 	handshakeMu   sync.Mutex
 	miningOnMu    sync.Mutex
 	subtreeMu     sync.Mutex
-	rejectedTxMu  sync.Mutex
 	bestBlockMu   sync.Mutex
 	nodeStatusMu  sync.Mutex
 
@@ -61,7 +59,6 @@ func NewBatchInsertService(db *gorm.DB, log *logrus.Logger, batchSize int, flush
 		handshakeBuffer:   make([]model.HandshakePG, 0, batchSize),
 		miningOnBuffer:    make([]model.MiningOnPG, 0, batchSize),
 		subtreeBuffer:     make([]model.SubtreePG, 0, batchSize),
-		rejectedTxBuffer:  make([]model.RejectedTxPG, 0, batchSize),
 		bestBlockBuffer:   make([]model.BestBlockRequestPG, 0, batchSize),
 		nodeStatusBuffer:  make([]model.NodeStatusPG, 0, batchSize),
 	}
@@ -157,19 +154,6 @@ func (s *BatchInsertService) AddSubtree(subtree model.SubtreePG) error {
 	return nil
 }
 
-// AddRejectedTx adds a rejected transaction to the buffer
-func (s *BatchInsertService) AddRejectedTx(rejectedTx model.RejectedTxPG) error {
-	s.rejectedTxMu.Lock()
-	defer s.rejectedTxMu.Unlock()
-
-	s.rejectedTxBuffer = append(s.rejectedTxBuffer, rejectedTx)
-
-	if len(s.rejectedTxBuffer) >= s.batchSize {
-		return s.flushRejectedTxsLocked()
-	}
-	return nil
-}
-
 // AddBestBlockRequest adds a best block request to the buffer
 func (s *BatchInsertService) AddBestBlockRequest(request model.BestBlockRequestPG) error {
 	s.bestBlockMu.Lock()
@@ -214,12 +198,6 @@ func (s *BatchInsertService) FlushAll() {
 		s.flushSubtreesLocked()
 	}
 	s.subtreeMu.Unlock()
-
-	s.rejectedTxMu.Lock()
-	if len(s.rejectedTxBuffer) > 0 {
-		s.flushRejectedTxsLocked()
-	}
-	s.rejectedTxMu.Unlock()
 
 	s.bestBlockMu.Lock()
 	if len(s.bestBlockBuffer) > 0 {
@@ -318,23 +296,6 @@ func (s *BatchInsertService) flushSubtreesLocked() error {
 
 	s.log.Debugf("Batch inserted %d subtrees in %v", len(s.subtreeBuffer), time.Since(startTime))
 	s.subtreeBuffer = s.subtreeBuffer[:0]
-	return nil
-}
-
-func (s *BatchInsertService) flushRejectedTxsLocked() error {
-	if len(s.rejectedTxBuffer) == 0 {
-		return nil
-	}
-
-	startTime := time.Now()
-	err := s.db.Clauses(clause.OnConflict{DoNothing: true}).CreateInBatches(s.rejectedTxBuffer, 1000).Error
-	if err != nil {
-		s.log.Errorf("Failed to batch insert rejected_txs: %v", err)
-		return fmt.Errorf("batch insert rejected_txs failed: %w", err)
-	}
-
-	s.log.Debugf("Batch inserted %d rejected_txs in %v", len(s.rejectedTxBuffer), time.Since(startTime))
-	s.rejectedTxBuffer = s.rejectedTxBuffer[:0]
 	return nil
 }
 

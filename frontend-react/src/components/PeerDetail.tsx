@@ -113,8 +113,7 @@ const PeerDetail: React.FC = () => {
       testnet: 'bg-green-100 text-green-800',
       regtest: 'bg-purple-100 text-purple-800',
       stn: 'bg-blue-100 text-blue-800',
-      teratestnet: 'bg-indigo-100 text-indigo-800',
-      tstn: 'bg-pink-100 text-pink-800'
+      teratestnet: 'bg-indigo-100 text-indigo-800'
     };
     return colors[network] || 'bg-gray-100 text-gray-800';
   };
@@ -125,7 +124,6 @@ const PeerDetail: React.FC = () => {
       // miningon: '⛏️', // Temporarily disabled
       subtree: '🌳',
       // handshake: '🤝', // Deprecated
-      rejected_tx: '❌',
       node_status: '🖥️',
       bestblock: '🏆'
     };

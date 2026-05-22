@@ -50,7 +50,7 @@ func (s *StatsService) CalculateStats() error {
 	}
 
 	// Count messages from all tables
-	tables := []string{"blocks", "mining_ons", "subtrees", "node_statuses", "rejected_txes", "best_block_requests"}
+	tables := []string{"blocks", "mining_ons", "subtrees", "node_statuses", "best_block_requests"}
 	tableCounts := make(map[string]int64)
 
 	for _, table := range tables {
@@ -231,20 +231,6 @@ func (s *StatsService) addSpecializedTableCounts(topicStats *[]TopicStat) {
 		}
 	}
 
-	// Count rejected transactions
-	var rejectedTxCounts []NetworkCount
-	if err := s.db.Table("rejected_txes").
-		Select("network, COUNT(*) as count").
-		Group("network").
-		Find(&rejectedTxCounts).Error; err == nil {
-		for _, nc := range rejectedTxCounts {
-			if nc.Network != "" {
-				topic := "bitcoin/" + nc.Network + "-rejected_tx"
-				updateOrAdd(topic, nc.Network, "rejected_tx", nc.Count)
-			}
-		}
-	}
-
 	// Count best block requests
 	var bestBlockCounts []NetworkCount
 	if err := s.db.Table("best_block_requests").
@@ -289,7 +275,7 @@ func (s *StatsService) countUniquePeers() int {
 
 	// From other tables (peer_id field)
 	var peerIDs []string
-	for _, table := range []string{"blocks", "mining_ons", "subtrees", "handshakes", "rejected_txes", "best_block_requests"} {
+	for _, table := range []string{"blocks", "mining_ons", "subtrees", "handshakes", "best_block_requests"} {
 		peerIDs = nil
 		if err := s.db.Table(table).Distinct("peer_id").Pluck("peer_id", &peerIDs).Error; err == nil {
 			for _, peer := range peerIDs {
@@ -355,12 +341,6 @@ func (s *StatsService) getTopPeers() []PeerSummary {
 			WHERE peer_id != ''
 			GROUP BY peer_id
 			
-			UNION ALL
-			
-			SELECT peer_id, COUNT(*) as message_count, MAX(received_at) as last_seen
-			FROM rejected_txes
-			WHERE peer_id != ''
-			GROUP BY peer_id
 		)
 		SELECT 
 			peer_id,
@@ -412,7 +392,7 @@ func (s *StatsService) getTopPeers() []PeerSummary {
 // getLastMessageTime gets the most recent message time across all tables
 func (s *StatsService) getLastMessageTime() time.Time {
 	var lastTime time.Time
-	tables := []string{"blocks", "mining_ons", "subtrees", "handshakes", "rejected_txes", "best_block_requests"}
+	tables := []string{"blocks", "mining_ons", "subtrees", "handshakes", "best_block_requests"}
 
 	for _, table := range tables {
 		var tableTime *time.Time

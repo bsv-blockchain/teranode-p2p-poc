@@ -10,7 +10,6 @@ p2p:
     - "/dnsaddr/mainnet.bootstrap.teranode.bsvb.tech"
     - "/dnsaddr/testnet.bootstrap.teranode.bsvb.tech"
     - "/dnsaddr/teratestnet.bootstrap.teranode.bsvb.tech"
-    - "/dnsaddr/tstn.bootstrap.teranode.bsvb.tech"
 
   dht_mode: "off"           # off | client | server
 
@@ -35,7 +34,6 @@ networks:
   - "mainnet"
   - "testnet"
   - "teratestnet"
-  - "tstn"
 
 # Optional Redis cache configuration
 redis:

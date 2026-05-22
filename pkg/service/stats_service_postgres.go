@@ -53,8 +53,6 @@ func (s *StatsService) CalculateStatsOptimized() error {
 		UNION ALL
 		SELECT 'subtrees', COUNT(*) FROM subtrees
 		UNION ALL
-		SELECT 'rejected_txes', COUNT(*) FROM rejected_txes
-		UNION ALL
 		SELECT 'best_block_requests', COUNT(*) FROM best_block_requests
 	`
 
@@ -88,8 +86,6 @@ func (s *StatsService) CalculateStatsOptimized() error {
 			SELECT COUNT(*) FROM mining_ons WHERE received_at > $1
 			UNION ALL
 			SELECT COUNT(*) FROM subtrees WHERE received_at > $1
-			UNION ALL
-			SELECT COUNT(*) FROM rejected_txes WHERE received_at > $1
 		) as daily_counts
 	`
 	if err := s.db.Raw(todayQuery, twentyFourHoursAgo).Scan(&todayCount).Error; err == nil {
@@ -157,8 +153,6 @@ func (s *StatsService) CalculateStatsOptimized() error {
 			SELECT MAX(received_at) FROM mining_ons
 			UNION ALL
 			SELECT MAX(received_at) FROM subtrees
-			UNION ALL
-			SELECT MAX(received_at) FROM rejected_txes
 		) as last_times
 	`
 	if err := s.db.Raw(lastTimeQuery).Scan(&lastMessageTime).Error; err == nil && !lastMessageTime.IsZero() {
@@ -218,14 +212,6 @@ func (s *StatsService) calculateTopicStatsOptimized() []TopicStat {
 				'subtree' as message_type,
 				COUNT(*) as count
 			FROM subtrees
-			GROUP BY network
-			UNION ALL
-			SELECT
-				network || '-rejected_tx' as topic_type,
-				network,
-				'rejected_tx' as message_type,
-				COUNT(*) as count
-			FROM rejected_txes
 			GROUP BY network
 		)
 		SELECT

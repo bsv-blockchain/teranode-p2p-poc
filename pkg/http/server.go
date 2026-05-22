@@ -180,29 +180,6 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 						}
 					}
 
-				case "rejected_tx":
-					var rejectedTxs []model.RejectedTx
-					query := db.Table("rejected_txes").Order("received_at DESC").Limit(limit).Offset(offset)
-					if peer != "" {
-						query = query.Where("peer_id = ?", peer)
-					}
-					if network != "" {
-						query = query.Where("network = ?", network)
-					}
-					if err := query.Find(&rejectedTxs).Error; err == nil {
-						for _, rt := range rejectedTxs {
-							data, _ := json.Marshal(rt)
-							messages = append(messages, GenericMessage{
-								ID:         uint(rt.ID),
-								Topic:      topic,
-								Data:       string(data),
-								Network:    rt.Network,
-								PeerID:     rt.PeerID,
-								ReceivedAt: rt.ReceivedAt,
-							})
-						}
-					}
-
 				// We can add handshake support for backward compatibility if needed
 				case "handshake":
 					var handshakes []model.Handshake
@@ -274,21 +251,6 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 					Network:    ns.Network,
 					PeerID:     ns.PeerID,
 					ReceivedAt: ns.ReceivedAt,
-				})
-			}
-
-			// Get rejected transactions
-			var rejectedTxs []model.RejectedTx
-			db.Table("rejected_txes").Where("peer_id = ?", peer).Order("received_at DESC").Limit(limit/5).Find(&rejectedTxs)
-			for _, rt := range rejectedTxs {
-				data, _ := json.Marshal(rt)
-				messages = append(messages, GenericMessage{
-					ID:         uint(rt.ID),
-					Topic:      rt.Network + "-rejected_tx",
-					Data:       string(data),
-					Network:    rt.Network,
-					PeerID:     rt.PeerID,
-					ReceivedAt: rt.ReceivedAt,
 				})
 			}
 
@@ -455,39 +417,48 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 		json.NewEncoder(w).Encode(handshakes)
 	}))
 
-	// Rejected transactions endpoint
-	http.HandleFunc("/api/rejected-tx", enableCORS(func(w http.ResponseWriter, r *http.Request) {
+	// Per-peer blocks-per-hour computed server-side from node_statuses history.
+	// Aggregates (max_height - min_height) over the window per peer and normalises
+	// to a 3600s baseline. Skips peers with <2 samples or <30s of span.
+	http.HandleFunc("/api/peer-rates", enableCORS(func(w http.ResponseWriter, r *http.Request) {
+		windowMins := 60
+		if v := r.URL.Query().Get("minutes"); v != "" {
+			if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 360 {
+				windowMins = n
+			}
+		}
+		since := time.Now().Add(-time.Duration(windowMins) * time.Minute)
 		network := r.URL.Query().Get("network")
-		txID := r.URL.Query().Get("tx_id")
-		limit := 100
-		offset := 0
 
-		if l := r.URL.Query().Get("limit"); l != "" {
-			if n, err := strconv.Atoi(l); err == nil && n > 0 && n <= 500 {
-				limit = n
-			}
+		type Row struct {
+			PeerID        string  `json:"peer_id"`
+			BlocksPerHour float64 `json:"blocks_per_hour"`
+			SpanSeconds   float64 `json:"span_seconds"`
 		}
-		if o := r.URL.Query().Get("offset"); o != "" {
-			if n, err := strconv.Atoi(o); err == nil && n >= 0 {
-				offset = n
-			}
-		}
-
-		var rejectedTxs []model.RejectedTx
-		query := db.Order("received_at desc").Limit(limit).Offset(offset)
+		const minSpan = 30.0
+		var rows []Row
+		base := db.Table("node_statuses").
+			Select(`peer_id,
+			       CASE WHEN EXTRACT(EPOCH FROM (MAX(received_at) - MIN(received_at))) >= ?
+			            THEN (MAX(best_height) - MIN(best_height)) * 3600.0 / EXTRACT(EPOCH FROM (MAX(received_at) - MIN(received_at)))
+			            ELSE 0
+			       END AS blocks_per_hour,
+			       EXTRACT(EPOCH FROM (MAX(received_at) - MIN(received_at))) AS span_seconds`, minSpan).
+			Where("received_at >= ?", since).
+			Where("peer_id != ''").
+			Where("best_height > 0").
+			Group("peer_id").
+			Having("COUNT(*) >= 2")
 		if network != "" {
-			query = query.Where("network = ?", network)
+			base = base.Where("network = ?", network)
 		}
-		if txID != "" {
-			query = query.Where("tx_id = ?", txID)
-		}
-		if err := query.Find(&rejectedTxs).Error; err != nil {
+		if err := base.Find(&rows).Error; err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(rejectedTxs)
+		json.NewEncoder(w).Encode(rows)
 	}))
 
 	// Node statuses endpoint
@@ -698,7 +669,7 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 		peerMap := make(map[string]*PeerStat)
 
 		// Skip querying the non-existent messages table - the database has been optimized
-		// to use specialized tables (blocks, subtrees, node_statuses, rejected_txes)
+		// to use specialized tables (blocks, subtrees, node_statuses)
 
 		// Add data from specialized tables
 		// Blocks
@@ -788,7 +759,6 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 		// Process all message type tables
 		processPeerTable("blocks", "block")
 		processPeerTable("subtrees", "subtree")
-		processPeerTable("rejected_txes", "rejected_tx")
 		processPeerTable("node_statuses", "node_status")
 
 		// Get latest user agent and best height from node_statuses for each peer
@@ -963,13 +933,6 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 			detail.TotalMessages += nodeStatusCount
 		}
 
-		var rejectedCount int64
-		db.Table("rejected_txes").Where("peer_id = ?", peerID).Count(&rejectedCount)
-		if rejectedCount > 0 {
-			detail.MessageTypes["rejected_tx"] = rejectedCount
-			detail.TotalMessages += rejectedCount
-		}
-
 		// Get networks this peer participates in
 		networkMap := make(map[string]bool)
 
@@ -991,11 +954,6 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 		}
 
 		db.Table("handshakes").Where("peer_id = ? AND network != ''", peerID).Distinct("network").Pluck("network", &networks)
-		for _, n := range networks {
-			networkMap[n] = true
-		}
-
-		db.Table("rejected_txes").Where("peer_id = ? AND network != ''", peerID).Distinct("network").Pluck("network", &networks)
 		for _, n := range networks {
 			networkMap[n] = true
 		}
@@ -1123,7 +1081,6 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 		updateTimeRange("mining_ons")
 		updateTimeRange("subtrees")
 		updateTimeRange("handshakes")
-		updateTimeRange("rejected_txes")
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(detail)

@@ -55,7 +55,6 @@ const Stats: React.FC = () => {
       case 'regtest': return 'from-purple-400 to-purple-600';
       case 'stn': return 'from-orange-400 to-orange-600';
       case 'teratestnet': return 'from-pink-400 to-pink-600';
-      case 'tstn': return 'from-indigo-400 to-indigo-600';
       default: return 'from-gray-400 to-gray-600';
     }
   };
@@ -66,7 +65,6 @@ const Stats: React.FC = () => {
       // case 'miningon': return '⛏️'; // Temporarily disabled
       case 'subtree': return '🌳';
       case 'handshake': return '🤝';
-      case 'rejected_tx': return '❌';
       case 'node_status': return '🖥️';
       case 'bestblock': return '🏆';
       default: return '📦';
@@ -75,7 +73,7 @@ const Stats: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#F9F9F9] p-4">
+      <div className="min-h-screen bg-gray-50 p-4">
         <div className="max-w-7xl mx-auto">
           <div className="animate-pulse">
             <div className="h-12 bg-gray-200 rounded-lg w-48 mb-8"></div>
@@ -95,7 +93,7 @@ const Stats: React.FC = () => {
 
   if (error || !stats) {
     return (
-      <div className="min-h-screen bg-[#F9F9F9] p-4">
+      <div className="min-h-screen bg-gray-50 p-4">
         <div className="max-w-7xl mx-auto">
           <div className="bg-red-50 border border-red-200 rounded-xl p-6">
             <p className="text-red-600 text-center">{error || 'No statistics available'}</p>
@@ -125,11 +123,11 @@ const Stats: React.FC = () => {
     .sort(([, a], [, b]) => b - a);
 
   return (
-    <div className="min-h-screen bg-[#F9F9F9] p-4">
+    <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-7xl mx-auto">
         {/* Page Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-[#2D2D31] mb-2">Network Statistics</h1>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">Network Statistics</h1>
           <p className="text-gray-600">Real-time insights into the BSV Blockchain P2P network</p>
         </div>
 
@@ -175,7 +173,7 @@ const Stats: React.FC = () => {
         {/* Network Activity */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           <div className="bg-white rounded-2xl shadow-lg p-6">
-            <h2 className="text-2xl font-bold text-[#2D2D31] mb-6">Network Activity</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Network Activity</h2>
             <div className="space-y-4">
               {sortedNetworks.map(([network, count]) => {
                 const percentage = (count / stats.totalMessages) * 100;
@@ -199,12 +197,12 @@ const Stats: React.FC = () => {
 
           {/* Latest Block Heights */}
           <div className="bg-white rounded-2xl shadow-lg p-6">
-            <h2 className="text-2xl font-bold text-[#2D2D31] mb-6">Latest Block Heights</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Latest Block Heights</h2>
             <div className="grid grid-cols-2 gap-4">
               {Object.entries(stats.latestBlockHeight).map(([network, height]) => (
                 <div key={network} className="bg-gray-50 rounded-xl p-4">
                   <div className="text-sm font-medium text-gray-600 uppercase mb-1">{network}</div>
-                  <div className="text-2xl font-bold text-[#2D2D31]">{height.toLocaleString()}</div>
+                  <div className="text-2xl font-bold text-gray-900">{height.toLocaleString()}</div>
                 </div>
               ))}
             </div>
@@ -213,7 +211,7 @@ const Stats: React.FC = () => {
 
         {/* Messages by Topic */}
         <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
-          <h2 className="text-2xl font-bold text-[#2D2D31] mb-6">Messages by Topic</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">Messages by Topic</h2>
           <div className="overflow-x-auto">
             <table className="min-w-full">
               <thead>
@@ -265,7 +263,7 @@ const Stats: React.FC = () => {
 
         {/* Top Active Peers */}
         <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
-          <h2 className="text-2xl font-bold text-[#2D2D31] mb-6">Top Active Peers</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">Top Active Peers</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {stats.topPeers.map((peer, index) => (
               <div key={index} className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-4 border border-gray-200">

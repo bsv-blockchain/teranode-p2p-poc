@@ -12,7 +12,6 @@ func MigrateAll(db *gorm.DB) error {
 		&MiningOn{},
 		&Subtree{},
 		&Handshake{},
-		&RejectedTx{},
 		&StatsCache{},   // Pre-calculated statistics cache
 	)
 }

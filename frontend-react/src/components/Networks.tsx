@@ -16,12 +16,12 @@ const Networks: React.FC = () => {
   // Get network from URL query param, then localStorage, then default to mainnet
   const getInitialNetwork = (): Network => {
     const urlNetwork = searchParams.get('network');
-    if (urlNetwork && ['mainnet', 'testnet', 'teratestnet', 'tstn'].includes(urlNetwork)) {
+    if (urlNetwork && ['mainnet', 'testnet', 'teratestnet'].includes(urlNetwork)) {
       return urlNetwork as Network;
     }
 
     const storedNetwork = localStorage.getItem(NETWORK_STORAGE_KEY);
-    if (storedNetwork && ['mainnet', 'testnet', 'teratestnet', 'tstn'].includes(storedNetwork)) {
+    if (storedNetwork && ['mainnet', 'testnet', 'teratestnet'].includes(storedNetwork)) {
       return storedNetwork as Network;
     }
 
@@ -49,7 +49,7 @@ const Networks: React.FC = () => {
   // Sync with URL changes (browser back/forward)
   useEffect(() => {
     const urlNetwork = searchParams.get('network');
-    if (urlNetwork && ['mainnet', 'testnet', 'teratestnet', 'tstn'].includes(urlNetwork)) {
+    if (urlNetwork && ['mainnet', 'testnet', 'teratestnet'].includes(urlNetwork)) {
       const network = urlNetwork as Network;
       setSelectedNetwork(network);
       localStorage.setItem(NETWORK_STORAGE_KEY, network);
@@ -259,7 +259,6 @@ const Networks: React.FC = () => {
       case 'mainnet': return 'from-orange-400 to-orange-600';
       case 'testnet': return 'from-green-400 to-green-600';
       case 'teratestnet': return 'from-indigo-400 to-indigo-600';
-      case 'tstn': return 'from-pink-400 to-pink-600';
       default: return 'from-gray-400 to-gray-600';
     }
   };
@@ -303,7 +302,6 @@ const Networks: React.FC = () => {
                 <option value="mainnet">Mainnet</option>
                 <option value="testnet">Testnet</option>
                 <option value="teratestnet">Teratestnet</option>
-                <option value="tstn">TSTN</option>
               </select>
 
               <button

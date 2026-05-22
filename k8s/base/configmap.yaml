@@ -17,7 +17,6 @@ data:
         - "/dnsaddr/mainnet.bootstrap.teranode.bsvb.tech"
         - "/dnsaddr/testnet.bootstrap.teranode.bsvb.tech"
         - "/dnsaddr/teratestnet.bootstrap.teranode.bsvb.tech"
-        - "/dnsaddr/tstn.bootstrap.teranode.bsvb.tech"
 
       dht_mode: "off"
 
@@ -40,15 +39,11 @@ data:
     networks:
       - "mainnet"
       - "testnet"
-      - "regtest"
-      - "stn"
       - "teratestnet"
-      - "tstn"
 
     # Topics to subscribe to
     topics:
       - "bitcoin/block"
       - "bitcoin/subtree"
       - "bitcoin/handshake"
-      - "bitcoin/rejected_tx"
       - "bitcoin/node_status"
