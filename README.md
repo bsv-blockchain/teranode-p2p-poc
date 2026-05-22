@@ -4,9 +4,9 @@ Teranode P2P is a peer-to-peer networking component for the BSV Blockchain ecosy
 
 ## Features
 
-- **Decentralized Networking:** Connects to other nodes using a secure, private DHT (Distributed Hash Table).
+- **Decentralized Networking:** Connects to other nodes using libp2p with /dnsaddr bootstrap discovery (no DHT in this listener).
 - **Configurable Topics:** Subscribes to and handles key BSV Blockchain network topics (blocks, transactions, mining status, etc.).
-- **Message Persistence:** All received messages are stored in a SQLite database (configurable path).
+- **Message Persistence:** All received messages are stored in a PostgreSQL database.
 - **Realtime Websocket:** All new messages are broadcast to connected websocket clients.
 - **Searchable API:** Query messages by topic or peer via a REST API.
 - **Lightweight Frontend:** View and search messages in realtime at `/` (served from `frontend/index.html`).
@@ -29,26 +29,32 @@ go mod tidy
 
 Create a `config.yaml` in your project root. Example:
 ```yaml
-database:
-  path: "./messages.db"
 p2p:
-  bootstrap_addresses:
-    - "address1"
-    - "address2"
-  shared_key: "your-shared-key"
-  dht_protocol_id: "your-protocol-id"
-  port: 12345
-  listen_addresses:
-    - "/ip4/0.0.0.0/tcp/12345"
-  advertise: true
-  use_private_dht: true
-topics:
-  - "bitcoin/mainnet-block"
-  - "bitcoin/mainnet-tx"
+  port: 9901
+  # /dnsaddr/ entries resolve via DNS TXT to bootstrap multiaddrs.
+  # Managed by BSV Association — contact BSVA to be added.
+  bootstrap_peers:
+    - "/dnsaddr/mainnet.bootstrap.teranode.bsvb.tech"
+    - "/dnsaddr/testnet.bootstrap.teranode.bsvb.tech"
+    - "/dnsaddr/teratestnet.bootstrap.teranode.bsvb.tech"
+    - "/dnsaddr/tstn.bootstrap.teranode.bsvb.tech"
+  dht_mode: "off"
+
+database:
+  host: "localhost"
+  port: 5432
+  user: "teranode"
+  password: "teranode"
+  name: "teranode_p2p"
+  sslmode: "disable"
+
+networks:
+  - "mainnet"
+  - "testnet"
+  - "teratestnet"
+  - "tstn"
 ```
-- **database.path**: Path to your SQLite database file.
-- **topics**: List of topics to subscribe to.
-- Other `p2p` keys as needed for your network.
+See `config.yaml.bk` for the full set of optional keys (`announce_addrs`, `peer_cache_file`, connection-manager tuning, Redis cache, performance, monitoring).
 
 ### Running
 To start the P2P node and HTTP server:
