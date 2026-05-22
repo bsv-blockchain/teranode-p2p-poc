@@ -291,7 +291,7 @@ func main() {
 					}
 					data := msg.Data
 					// Handle incoming messages if needed
-					log.Infof("Received message on topic %s from peer %s", msg.Topic, msg.From)
+					log.Infof("Received message on topic %s from peer %s", msg.Topic, msg.FromID)
 					// Try to parse the message
 					parsedMsg, parseErr := parser.ParseMessage(topic, data)
 
@@ -467,7 +467,7 @@ func main() {
 					websocket.BroadcastMessage(model.Message{
 						Topic:      topic,
 						Data:       string(data),
-						Peer:       msg.From,
+						Peer:       msg.FromID,
 						ReceivedAt: receivedAt,
 					})
 				}
