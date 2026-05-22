@@ -1,15 +1,25 @@
 # Sample configuration for teranode-p2p
 p2p:
-  bootstrap_addresses:
-    - "/dns4/teranode-bootstrap.bsvb.tech/tcp/9901/p2p/12D3KooWESmhNAN8s6NPdGNvJH3zJ4wMKDxapXKNUe2DzkAwKYqK"
-    - "/dns4/teranode-bootstrap-stage.bsvb.tech/tcp/9901/p2p/12D3KooWJ6kQHAR65xkA34NABsNVAJyVxPWh8JUSo1vtZsTyw4GD"
-  shared_key: "285b49e6d910726a70f205086c39cbac6d8dcc47839053a21b1f614773bbc137"
-  dht_protocol_id: "/teranode"
   port: 9901
-  listen_addresses:
-    - "127.0.0.1"
-  advertise: true
-  use_private_dht: true
+
+  # Bootstrap peers for libp2p discovery (no DHT in this POC).
+  # /dnsaddr/ entries resolve via DNS TXT to current bootstrap multiaddrs.
+  # Managed by BSV Association — contact BSVA to be added.
+  # Override with pipe-separated /dns4/ or /ip4/ multiaddrs.
+  bootstrap_peers:
+    - "/dnsaddr/mainnet.bootstrap.teranode.bsvb.tech"
+    - "/dnsaddr/testnet.bootstrap.teranode.bsvb.tech"
+    - "/dnsaddr/teratestnet.bootstrap.teranode.bsvb.tech"
+    - "/dnsaddr/tstn.bootstrap.teranode.bsvb.tech"
+
+  dht_mode: "off"           # off | client | server
+
+  announce_addrs: []        # optional; empty = libp2p auto-detect
+  peer_cache_file: ""       # optional; "" disables peer cache persistence
+
+  # Connection manager (zero = library defaults)
+  max_connections: 0
+  min_connections: 0
 
 database:
   path: "./teranode-p2p.db"

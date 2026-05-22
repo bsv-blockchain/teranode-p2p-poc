@@ -222,6 +222,19 @@ func main() {
 
 	// Load P2P settings from config
 	port := viper.GetInt("p2p.port")
+	bootstrapPeers := viper.GetStringSlice("p2p.bootstrap_peers")
+	dhtMode := viper.GetString("p2p.dht_mode")
+	if dhtMode == "" {
+		dhtMode = "off"
+	}
+	announceAddrs := viper.GetStringSlice("p2p.announce_addrs")
+	peerCacheFile := viper.GetString("p2p.peer_cache_file")
+	maxConn := viper.GetInt("p2p.max_connections")
+	minConn := viper.GetInt("p2p.min_connections")
+
+	if len(bootstrapPeers) == 0 {
+		log.Fatal("p2p.bootstrap_peers is required")
+	}
 
 	// Get networks from config and generate topics
 	var topics []string
@@ -246,11 +259,16 @@ func main() {
 	}
 
 	newConfig := simonp2p.Config{
-		Port:   port,
-		Logger: log,
-		//AnnounceAddrs: listenAddresses,
-		PrivateKey: pk,
-		Name:       "teranode-p2p-listener",
+		Name:           "teranode-p2p-listener",
+		Port:           port,
+		Logger:         log,
+		PrivateKey:     pk,
+		BootstrapPeers: bootstrapPeers,
+		DHTMode:        dhtMode,
+		AnnounceAddrs:  announceAddrs,
+		PeerCacheFile:  peerCacheFile,
+		MaxConnections: maxConn,
+		MinConnections: minConn,
 	}
 
 	node, err := simonp2p.NewClient(newConfig)
@@ -273,7 +291,7 @@ func main() {
 					}
 					data := msg.Data
 					// Handle incoming messages if needed
-					log.Infof("Received message on topic %s from peer %s", msg.Topic, msg.From)
+					log.Infof("Received message on topic %s from peer %s", msg.Topic, msg.FromID)
 					// Try to parse the message
 					parsedMsg, parseErr := parser.ParseMessage(topic, data)
 
@@ -449,7 +467,7 @@ func main() {
 					websocket.BroadcastMessage(model.Message{
 						Topic:      topic,
 						Data:       string(data),
-						Peer:       msg.From,
+						Peer:       msg.FromID,
 						ReceivedAt: receivedAt,
 					})
 				}

@@ -7,11 +7,17 @@ data:
     database:
       path: /data/teranode.db
     p2p:
-      bootstrap_addresses:
-        - /ip4/3.67.34.130/tcp/5004/p2p/12D3KooWT3NDfoZaLYQ7o9v5mXiwoxzob4Z2ftwiNiDJVmFfBizb
-        - /ip4/44.192.20.36/tcp/5004/p2p/12D3KooWGFSaKHVKmaubiLhBvZJSNWFmvdHqgGWL3aXnAzBxUnHw
-      shared_key: "teranode"
-      dht_protocol: "/teranode-bootstrap/kad/0.0.1"
+      port: 9901
+      bootstrap_peers:
+        - "/dnsaddr/mainnet.bootstrap.teranode.bsvb.tech"
+        - "/dnsaddr/testnet.bootstrap.teranode.bsvb.tech"
+        - "/dnsaddr/teratestnet.bootstrap.teranode.bsvb.tech"
+        - "/dnsaddr/tstn.bootstrap.teranode.bsvb.tech"
+      dht_mode: "off"
+      announce_addrs: []
+      peer_cache_file: ""
+      max_connections: 0
+      min_connections: 0
     topics:
       - "bitcoin/mainnet-block"
       - "bitcoin/mainnet-mining_on"

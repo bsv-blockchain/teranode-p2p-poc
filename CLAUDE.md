@@ -100,12 +100,13 @@ go test -cover ./...
 This is a BSV Blockchain P2P networking component that provides:
 
 ### Core Components
-- **P2P Node** (`pkg/p2p/`): LibP2P-based peer-to-peer networking with private DHT support
-- **Message Storage** (`pkg/model/`): SQLite database with GORM for message persistence
+- **P2P Client** (`cmd/main.go`): Uses `github.com/bsv-blockchain/go-p2p-message-bus` (libp2p-based) with `/dnsaddr` bootstrap discovery; runs as a passive listener (`dht_mode: "off"`)
+- **Message Storage** (`pkg/model/`): PostgreSQL with GORM, partitioned by month, with materialized views
+- **Parser** (`pkg/parser/`): Decodes incoming P2P messages into typed records
+- **Batch Insert Service** (`pkg/service/`): Buffers DB writes for throughput; also computes stats
 - **HTTP API** (`pkg/http/`): REST API for querying stored messages
 - **WebSocket Server** (`pkg/websocket/`): Real-time message broadcasting to connected clients
-- **React Frontend** (`frontend-react/`): Modern React/TypeScript application with real-time message viewing
-- **Legacy Frontend** (`frontend/`): Simple HTML interface (fallback)
+- **React Frontend** (`frontend-react/`): React/TypeScript application with real-time message viewing
 
 ### Key Architecture Patterns
 - **Event-Driven**: Messages received via P2P are immediately stored and broadcast via WebSocket
@@ -115,7 +116,7 @@ This is a BSV Blockchain P2P networking component that provides:
 
 ### Data Flow
 1. P2P node subscribes to configured topics from `config.yaml`
-2. Incoming messages are stored in SQLite database
+2. Incoming messages are buffered by the batch insert service and written to PostgreSQL
 3. Messages are simultaneously broadcast to WebSocket clients
 4. HTTP API provides historical message querying by topic/peer
 5. Frontend provides real-time visualization and search capabilities
@@ -123,18 +124,22 @@ This is a BSV Blockchain P2P networking component that provides:
 ## Configuration
 
 The application requires `config.yaml` with these key sections:
-- `p2p`: Network configuration (bootstrap addresses, shared key, DHT protocol)
-- `database`: SQLite file path
-- `topics`: List of BSV Blockchain topics to subscribe to
+- `p2p`: `port`, `bootstrap_peers` (list of `/dnsaddr/` or multiaddr), `dht_mode` (off/client/server), optional `announce_addrs`, `peer_cache_file`, `max_connections`, `min_connections`
+- `database`: PostgreSQL `host`, `port`, `user`, `password`, `name`, `sslmode`
+- `networks`: List of BSV network names; topics are generated per network
+- `redis` (optional): Cache layer
+- `performance`, `monitoring` (optional): Tuning knobs
 
 Environment variables can override config values using `TERANODE_P2P_` prefix with underscores replacing dots.
+
+PostgreSQL must be running externally — use `docker-compose -f docker-compose.postgres.yml up -d` to start a local stack alongside `make run`.
 
 ## Important Notes
 
 ### Dependencies
-- Go 1.24.5+ required
-- Uses LibP2P for networking, GORM for database, Gorilla WebSocket for real-time communication
-- SQLite database auto-migrates on startup
+- Go 1.25.7+ required (see `go.mod`)
+- Uses `go-p2p-message-bus` (libp2p) for networking, GORM with `postgres` driver, Gorilla WebSocket for real-time communication
+- PostgreSQL schema auto-migrates on startup; monthly partitions created proactively
 
 ### Runtime Behavior
 - HTTP server runs on port 8080 (hardcoded in `pkg/http/server.go`)
@@ -151,9 +156,9 @@ Environment variables can override config values using `TERANODE_P2P_` prefix wi
 - **Real-time Updates**: WebSocket integration with visual indicators for new messages
 
 ### Security Considerations
-- Uses private DHT with shared key authentication
+- Passive listener: `dht_mode: "off"`, no DHT participation, no peer advertisement. Bootstrap discovery via `/dnsaddr` (BSV Association-managed)
 - No authentication/authorization implemented for HTTP endpoints
-- Database path should be writable by application user
+- PostgreSQL credentials live in `config.yaml` — do not commit production credentials
 
 ### Hidden Features
 - **All Networks Selection**: The frontend supports viewing messages from all networks simultaneously, but this option is currently hidden from the UI. The functionality remains fully implemented in the codebase and can be re-enabled by uncommenting the "All Networks" button in `frontend-react/src/components/NetworkSelector.tsx`. The default network selection is set to 'mainnet'.
