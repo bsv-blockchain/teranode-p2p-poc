@@ -173,17 +173,6 @@ export interface Handshake {
   Topic?: string;  // For WebSocket messages
 }
 
-export interface RejectedTx {
-  ID: number;
-  Network: string;
-  TxID: string;
-  Reason: string;
-  PeerID: string;  // Peer ID from within the message data
-  sentFromPeer?: string;  // Peer who sent this message to us
-  ReceivedAt: string;
-  Topic?: string;  // For WebSocket messages
-}
-
 export interface NodeStatus {
   ID: number;
   Network: string;
@@ -212,10 +201,8 @@ export interface NodeStatus {
   Topic?: string;  // For WebSocket messages
 }
 
-// Temporarily removing 'miningon' from visible message types
-// export type MessageType = 'block' | 'miningon' | 'subtree' | 'handshake' | 'rejected_tx' | 'node_status';
-export type MessageType = 'block' | 'subtree' | 'rejected_tx' | 'node_status';
-export type Network = 'mainnet' | 'testnet' | 'regtest' | 'stn' | 'teratestnet' | 'tstn';
+export type MessageType = 'block' | 'subtree' | 'node_status';
+export type Network = 'mainnet' | 'testnet' | 'regtest' | 'stn' | 'teratestnet';
 
 export interface DashboardFilters {
   network: Network | 'all';

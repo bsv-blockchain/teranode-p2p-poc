@@ -138,7 +138,6 @@ func main() {
 		&model.HandshakePG{},
 		&model.MiningOnPG{},
 		&model.SubtreePG{},
-		&model.RejectedTxPG{},
 		&model.BestBlockRequestPG{},
 		&model.StatsCachePG{},
 		&model.NodeStatusPG{},
@@ -151,7 +150,7 @@ func main() {
 	// Create partitions for current and next months if they don't exist
 	log.Info("Creating database partitions for current month...")
 	currentTime := time.Now()
-	partitionTables := []string{"blocks", "block_headers", "handshakes", "mining_ons", "subtrees", "rejected_txes", "node_statuses"}
+	partitionTables := []string{"blocks", "block_headers", "handshakes", "mining_ons", "subtrees", "node_statuses"}
 
 	for _, tableName := range partitionTables {
 		// Create partition for current month
@@ -405,18 +404,6 @@ func main() {
 							ReceivedAt: receivedAt,
 						}); err != nil {
 							log.Errorf("Failed to add handshake to batch: %v", err)
-						}
-
-					case parser.TypeRejectedTx:
-						rejectedMsg := parsedMsg.Data.(p2p.RejectedTxMessage)
-						if err := batchService.AddRejectedTx(model.RejectedTxPG{
-							Network:    parsedMsg.Network,
-							TxID:       rejectedMsg.TxID,
-							Reason:     rejectedMsg.Reason,
-							PeerID:     rejectedMsg.PeerID,
-							ReceivedAt: receivedAt,
-						}); err != nil {
-							log.Errorf("Failed to add rejected tx to batch: %v", err)
 						}
 
 					case parser.TypeNodeStatus:

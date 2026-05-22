@@ -29,11 +29,6 @@ const typeInfo: Record<MessageType | 'all', { label: string; icon: string; descr
     icon: '🌳', 
     description: 'Transaction batch announcements' 
   },
-  rejected_tx: {
-    label: 'Rejected TX',
-    icon: '❌',
-    description: 'Rejected transaction notifications'
-  },
   node_status: {
     label: 'Node Status',
     icon: '📡',

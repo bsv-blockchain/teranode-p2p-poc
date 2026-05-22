@@ -1,10 +1,9 @@
-import { 
-  Message, 
-  Block, 
-  MiningOn, 
-  Subtree, 
-  Handshake, 
-  RejectedTx,
+import {
+  Message,
+  Block,
+  MiningOn,
+  Subtree,
+  Handshake,
   NodeStatus
 } from '../types/Message';
 
@@ -46,9 +45,6 @@ export class MessageParser {
         case 'node_status':
           return this.parseNodeStatusMessage(baseMessage, parsedData);
 
-        case 'rejected_tx':
-          return this.parseRejectedTxMessage(baseMessage, parsedData);
-        
         default:
           // Return the original message for unknown types
           return message;
@@ -114,18 +110,6 @@ export class MessageParser {
       DataHubURL: data.data_hub_url || data.DataHubURL || data.dataHubURL || '',
       UserAgent: data.user_agent || data.UserAgent || data.userAgent || 'Unknown',
       Services: data.services || data.Services || 0
-    };
-  }
-
-  private static parseRejectedTxMessage(base: any, data: any): RejectedTx {
-    return {
-      ...base,
-      PeerID: data.peer_id || data.PeerID || data.peerId || base.sentFromPeer || '',  // Try to get peer ID from data, fallback to sender
-      TxID: data.tx_id || data.TxID || '',
-      Reason: data.reason || data.Reason || '',
-      Code: data.code || data.Code || 0,
-      Data: data.data || data.Data || '',
-      ExtraInfo: data.extra_info || data.ExtraInfo || ''
     };
   }
 

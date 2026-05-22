@@ -1,8 +1,8 @@
-import { 
-  Message, 
-  SearchFilters, 
-  ApiResponse, 
-  PaginationInfo, 
+import {
+  Message,
+  SearchFilters,
+  ApiResponse,
+  PaginationInfo,
   MessageStats,
   Network,
   MessageType,
@@ -11,7 +11,6 @@ import {
   MiningOn,
   Subtree,
   Handshake,
-  RejectedTx,
   DashboardFilters
 } from '../types/Message';
 
@@ -79,7 +78,7 @@ export class ApiService {
     } catch (error) {
       console.error('Error fetching networks:', error);
       // Return selected networks as fallback
-      return ['mainnet', 'testnet', 'teratestnet', 'tstn'];
+      return ['mainnet', 'testnet', 'teratestnet'];
     }
   }
 
@@ -92,9 +91,7 @@ export class ApiService {
       return await response.json();
     } catch (error) {
       console.error('Error fetching message types:', error);
-      // Temporarily removing 'miningon' from visible message types
-      // return ['block', 'miningon', 'subtree', 'handshake', 'rejected_tx'];
-      return ['block', 'subtree', 'node_status', 'rejected_tx'];
+      return ['block', 'subtree', 'node_status'];
     }
   }
 
@@ -191,29 +188,6 @@ export class ApiService {
     };
   }
 
-  static async getRejectedTransactions(filters: DashboardFilters): Promise<{ data: RejectedTx[], pagination: PaginationInfo }> {
-    const params = new URLSearchParams();
-    const page = filters.page || 1;
-    const limit = filters.limit || 20;
-    const offset = (page - 1) * limit;
-
-    if (filters.network && filters.network !== 'all') params.append('network', filters.network);
-    if (filters.peer) params.append('peer_id', filters.peer);
-    params.append('limit', limit.toString());
-    params.append('offset', offset.toString());
-
-    const response = await fetch(`${API_BASE_URL}/api/rejected-tx?${params.toString()}`);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    const data: RejectedTx[] = await response.json();
-
-    return {
-      data: data || [],
-      pagination: this.createPagination(data?.length || 0, page, limit, offset)
-    };
-  }
-
   static async getNodeStatuses(filters: DashboardFilters): Promise<{ data: import('../types/Message').NodeStatus[], pagination: PaginationInfo }> {
     const params = new URLSearchParams();
     const page = filters.page || 1;
@@ -235,6 +209,16 @@ export class ApiService {
       data: data || [],
       pagination: this.createPagination(data?.length || 0, page, limit, offset)
     };
+  }
+
+  static async getPeerRates(minutes: number = 60): Promise<Array<{ peer_id: string; blocks_per_hour: number; span_seconds: number }>> {
+    const params = new URLSearchParams();
+    params.append('minutes', String(minutes));
+    const response = await fetch(`${API_BASE_URL}/api/peer-rates?${params.toString()}`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return (await response.json()) || [];
   }
 
   static async getLatestNodeStatuses(network: string): Promise<import('../types/Message').NodeStatus[]> {
@@ -278,8 +262,6 @@ export class ApiService {
         //   return await this.getMiningMessages(filters);
         case 'subtree':
           return await this.getSubtrees(filters);
-        case 'rejected_tx':
-          return await this.getRejectedTransactions(filters);
         case 'node_status':
           return await this.getNodeStatuses(filters);
         default:

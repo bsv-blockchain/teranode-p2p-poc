@@ -99,20 +99,6 @@ func (SubtreePG) TableName() string {
 	return "subtrees"
 }
 
-// RejectedTxPG represents a rejected transaction (PostgreSQL optimized)
-type RejectedTxPG struct {
-	ID         uint64    `gorm:"primaryKey;autoIncrement" json:"ID"`
-	Network    string    `gorm:"type:varchar(20);not null;index:idx_rejectedtx_network_received" json:"Network"`
-	TxID       string    `gorm:"type:varchar(64);not null;index:idx_rejectedtx_txid,type:hash" json:"TxID"`
-	Reason     string    `gorm:"type:text;not null" json:"Reason"`
-	PeerID     string    `gorm:"type:varchar(100);not null;index:idx_rejectedtx_peer_received" json:"PeerID"`
-	ReceivedAt time.Time `gorm:"not null;default:CURRENT_TIMESTAMP" json:"ReceivedAt"`
-}
-
-func (RejectedTxPG) TableName() string {
-	return "rejected_txes"
-}
-
 // BestBlockRequestPG represents a best block request (PostgreSQL optimized)
 type BestBlockRequestPG struct {
 	ID         uint64    `gorm:"primaryKey;autoIncrement" json:"ID"`
