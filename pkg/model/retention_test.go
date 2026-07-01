@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"os"
 	"testing"
 
@@ -127,5 +128,55 @@ func TestDeleteOldRowsFloorsKeepMonths(t *testing.T) {
 	db.Raw("SELECT count(*) FROM retention_floor_test").Scan(&remaining)
 	if remaining != 1 {
 		t.Fatalf("keepMonths=0 must be floored to 1 and keep current month; got %d", remaining)
+	}
+}
+
+func TestDropOldPartitions(t *testing.T) {
+	db := testDB(t)
+	log := testLog()
+	if err := EnsureRetentionObjects(db, log); err != nil {
+		t.Fatalf("ensure: %v", err)
+	}
+
+	db.Exec("DROP TABLE IF EXISTS retention_parts_test")
+	if err := db.Exec(`CREATE TABLE retention_parts_test (id bigserial, received_at timestamptz NOT NULL, PRIMARY KEY (id, received_at)) PARTITION BY RANGE (received_at)`).Error; err != nil {
+		t.Fatalf("create partitioned: %v", err)
+	}
+	t.Cleanup(func() { db.Exec("DROP TABLE IF EXISTS retention_parts_test") })
+
+	// One old partition (5 months ago), one current, one next — named <parent>_YYYY_MM.
+	mk := func(offset int) string {
+		var name string
+		db.Raw(`SELECT 'retention_parts_test_' || to_char(date_trunc('month', CURRENT_DATE) + make_interval(months => ?), 'YYYY_MM')`, offset).Scan(&name)
+		start := ""
+		end := ""
+		db.Raw(`SELECT (date_trunc('month', CURRENT_DATE) + make_interval(months => ?))::text`, offset).Scan(&start)
+		db.Raw(`SELECT (date_trunc('month', CURRENT_DATE) + make_interval(months => ?))::text`, offset+1).Scan(&end)
+		if err := db.Exec(fmt.Sprintf(`CREATE TABLE %s PARTITION OF retention_parts_test FOR VALUES FROM ('%s') TO ('%s')`, name, start, end)).Error; err != nil {
+			t.Fatalf("create partition %s: %v", name, err)
+		}
+		return name
+	}
+	oldName := mk(-5)
+	curName := mk(0)
+	nextName := mk(1)
+
+	if err := db.Exec("SELECT drop_old_partitions(3)").Error; err != nil {
+		t.Fatalf("drop_old_partitions: %v", err)
+	}
+
+	exists := func(name string) bool {
+		var n int64
+		db.Raw("SELECT count(*) FROM pg_class WHERE relname = ?", name).Scan(&n)
+		return n > 0
+	}
+	if exists(oldName) {
+		t.Fatalf("old partition %s should have been dropped", oldName)
+	}
+	if !exists(curName) {
+		t.Fatalf("current partition %s must be kept", curName)
+	}
+	if !exists(nextName) {
+		t.Fatalf("next partition %s must be kept", nextName)
 	}
 }
