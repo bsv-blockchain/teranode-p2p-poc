@@ -131,6 +131,16 @@ func TestDeleteOldRowsFloorsKeepMonths(t *testing.T) {
 	}
 }
 
+func TestRunRetention(t *testing.T) {
+	db := testDB(t)
+	log := testLog()
+	if err := EnsureRetentionObjects(db, log); err != nil {
+		t.Fatalf("ensure: %v", err)
+	}
+	// Must not panic or block even when the plain tables are absent/empty; it logs and continues.
+	RunRetention(db, log, 3)
+}
+
 func TestDropOldPartitions(t *testing.T) {
 	db := testDB(t)
 	log := testLog()

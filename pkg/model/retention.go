@@ -135,5 +135,16 @@ func deleteOldRows(db *gorm.DB, log *logrus.Logger, keepMonths int, tables []str
 	return nil
 }
 
-// RunRetention is added in a later task.
-var _ = plainTables
+// RunRetention runs one full prune pass: ensure partitions, drop old partitions, delete old
+// rows from plain tables. Errors are logged, not returned — retention must never crash the app.
+func RunRetention(db *gorm.DB, log *logrus.Logger, keepMonths int) {
+	if err := db.Exec("SELECT create_monthly_partitions()").Error; err != nil {
+		log.Errorf("retention: create_monthly_partitions failed: %v", err)
+	}
+	if err := db.Exec("SELECT drop_old_partitions(?)", keepMonths).Error; err != nil {
+		log.Errorf("retention: drop_old_partitions failed: %v", err)
+	}
+	if err := deleteOldRows(db, log, keepMonths, plainTables); err != nil {
+		log.Errorf("retention: deleteOldRows failed: %v", err)
+	}
+}
