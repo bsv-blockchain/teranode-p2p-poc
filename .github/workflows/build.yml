@@ -11,6 +11,11 @@ on:
       - master
   workflow_dispatch:
 
+# Least-privilege default for GITHUB_TOKEN across all jobs; the build-and-push
+# job widens this to packages: write where it actually needs it.
+permissions:
+  contents: read
+
 jobs:
   get_tag:
     runs-on: ubuntu-latest
