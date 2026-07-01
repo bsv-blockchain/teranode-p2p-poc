@@ -151,10 +151,14 @@ func main() {
 		log.Errorf("Failed to ensure retention objects: %v — retention is impaired, disk usage may grow unbounded", err)
 	}
 
-	// Create partitions for current and next months if they don't exist
+	// Create partitions for current and next months if they don't exist.
+	// node_statuses is always partitioned by this app (created PARTITION BY RANGE above), so it
+	// is handled explicitly here. The other message tables' shape varies by deployment (plain in
+	// PROD via AutoMigrate, partitioned via migrations/001 / local docker) and is handled by the
+	// synchronous create_monthly_partitions() call below plus runtime relkind detection in
+	// pkg/model/retention.go — not by this loop.
 	log.Info("Creating database partitions for current month...")
 	currentTime := time.Now()
-	// Only node_statuses is partitioned; the rest are plain tables pruned by row DELETE.
 	partitionTables := []string{"node_statuses"}
 
 	for _, tableName := range partitionTables {
@@ -219,6 +223,18 @@ func main() {
 	db.Exec(`REFRESH MATERIALIZED VIEW IF EXISTS network_activity_summary`)
 	db.Exec(`REFRESH MATERIALIZED VIEW IF EXISTS peer_activity_summary`)
 	db.Exec(`REFRESH MATERIALIZED VIEW IF EXISTS latest_block_heights`)
+
+	// Synchronously ensure current+next month partitions exist for EVERY partitioned table
+	// (relkind='p'), whatever this deployment's schema shape turns out to be — PROD has the
+	// message tables plain and only node_statuses partitioned, but migrations/001 and local
+	// docker have all of them partitioned. This must complete before the P2P client
+	// subscribes/starts accepting writes below, closing the startup race where an insert into
+	// a partitioned table could fail with "no partition found for row" if the async 24h
+	// retention goroutine hasn't run yet. create_monthly_partitions() is fast (metadata-only).
+	log.Info("Ensuring monthly partitions exist for all partitioned tables...")
+	if err := db.Exec("SELECT create_monthly_partitions()").Error; err != nil {
+		log.Errorf("Failed to create monthly partitions: %v", err)
+	}
 
 	retentionMonths := viper.GetInt("performance.partition_retention_months")
 	if retentionMonths < 1 {

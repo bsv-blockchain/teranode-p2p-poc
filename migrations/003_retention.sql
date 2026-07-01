@@ -68,6 +68,7 @@ BEGIN
                     RAISE NOTICE 'Dropped old partition %', child.name;
                 END IF;
             EXCEPTION WHEN others THEN
+                RAISE WARNING 'drop_old_partitions: skipped %: %', child.name, SQLERRM;
                 CONTINUE;
             END;
         END LOOP;
@@ -75,5 +76,18 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Plain tables (blocks, block_headers, handshakes, mining_ons, subtrees, best_block_requests)
--- are pruned by batched row DELETE in the application (pkg/model/retention.go, deleteOldRows).
+-- Indexes referenced by the Go model tags (models_postgres.go) for tables whose shape varies
+-- by deployment (plain via AutoMigrate in PROD, partitioned via 001 locally). IF NOT EXISTS is
+-- safe to run against either shape.
+CREATE INDEX IF NOT EXISTS idx_blockheaders_received_at ON block_headers (received_at);
+CREATE INDEX IF NOT EXISTS idx_handshakes_received_at ON handshakes (received_at);
+CREATE INDEX IF NOT EXISTS idx_miningons_received_at ON mining_ons (received_at);
+CREATE INDEX IF NOT EXISTS idx_subtrees_received_at ON subtrees (received_at);
+CREATE INDEX IF NOT EXISTS idx_bestblock_received_at ON best_block_requests (received_at);
+
+-- Row shape (plain vs partitioned) for blocks, block_headers, handshakes, mining_ons, subtrees,
+-- and best_block_requests is detected at RUNTIME via pg_class.relkind (see
+-- pkg/model/retention.go, deleteOldRows / tableRelkind). Partitioned tables are pruned by
+-- dropping old partitions (drop_old_partitions); plain tables are pruned by batched row DELETE.
+-- Do not assume either shape here — PROD has these plain, migrations/001 and local docker have
+-- them partitioned.

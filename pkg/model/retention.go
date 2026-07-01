@@ -8,8 +8,12 @@ import (
 	"gorm.io/gorm"
 )
 
-// plainTables are the non-partitioned message tables pruned by row DELETE.
-var plainTables = []string{
+// rowPruneCandidates are the message tables (excluding node_statuses) that MAY be pruned by
+// row DELETE. Whether a given table actually is plain (relkind='r') vs partitioned
+// (relkind='p') varies by deployment: PROD has these built PLAIN by GORM AutoMigrate, while
+// migrations/001 (and the local docker DB) provision them PARTITIONED. deleteOldRows decides
+// per-table, at runtime, via pg_class.relkind — never assume the shape here.
+var rowPruneCandidates = []string{
 	"blocks", "block_headers", "handshakes", "mining_ons", "subtrees", "best_block_requests",
 }
 
@@ -80,6 +84,7 @@ BEGIN
                     RAISE NOTICE 'Dropped old partition %', child.name;
                 END IF;
             EXCEPTION WHEN others THEN
+                RAISE WARNING 'drop_old_partitions: skipped %: %', child.name, SQLERRM;
                 CONTINUE;
             END;
         END LOOP;
@@ -105,6 +110,11 @@ func EnsureRetentionObjects(db *gorm.DB, log *logrus.Logger) error {
 
 // retentionCutoff returns the start of the month (current − (keepMonths−1)) in UTC.
 // Rows/partitions strictly older than this are pruned. keepMonths is floored at 1.
+//
+// Correctness depends on the DB session timezone matching this function's UTC basis:
+// the Go side uses time.Now().UTC(), the SQL side (create_monthly_partitions /
+// drop_old_partitions) uses CURRENT_DATE — they must agree. The DSN pins TimeZone=UTC
+// (cmd/main.go, and TERANODE_P2P_TEST_DSN for tests) to keep the two sides in sync.
 func retentionCutoff(keepMonths int) time.Time {
 	if keepMonths < 1 {
 		keepMonths = 1
@@ -119,15 +129,41 @@ func retentionCutoff(keepMonths int) time.Time {
 // should never be hit in practice and guards only against a pathological infinite loop.
 const deleteOldRowsMaxBatches = 100000
 
-// deleteOldRows removes rows older than the retention cutoff from each plain table, in
-// batches of 20000 to bound lock duration, WAL, and dead-tuple buildup. Table names must
-// come from a trusted allowlist (they are interpolated into SQL).
+// tableRelkind looks up the pg_class.relkind of a public-schema table/relation by name.
+// Returns ("", nil) if no such relation exists (never treat that as an error — a candidate
+// table absent in this deployment's schema is simply skipped).
+func tableRelkind(db *gorm.DB, table string) (string, error) {
+	var relkind string
+	err := db.Raw(
+		`SELECT c.relkind FROM pg_class c
+		 JOIN pg_namespace n ON n.oid = c.relnamespace
+		 WHERE n.nspname = 'public' AND c.relname = ?`, table).Scan(&relkind).Error
+	if err != nil {
+		return "", err
+	}
+	return relkind, nil
+}
+
+// deleteOldRows removes rows older than the retention cutoff, in batches of 20000 to bound
+// lock duration, WAL, and dead-tuple buildup. Table names must come from a trusted allowlist
+// (they are interpolated into SQL).
+//
+// Each candidate table's actual shape is checked at runtime via pg_class.relkind before any
+// DELETE is issued:
+//   - Table doesn't exist (no pg_class row) -> skipped silently, no error. Deployments vary
+//     in which message tables they even have.
+//   - relkind != 'r' (e.g. 'p' partitioned parent) -> skipped; partitioned tables are already
+//     pruned by drop_old_partitions (whole-partition DROP), and a row-DELETE there would be
+//     both redundant and, historically, unsafe (see below). Logged at Info, not Error.
+//   - relkind == 'r' (plain table) -> batched id-based DELETE proceeds as before.
 //
 // The DELETE predicate uses the id (BIGSERIAL PK) rather than ctid: ctid is only unique
 // within a single heap file, so on a PARTITIONED table the same ctid can identify unrelated
 // rows in other partitions, making a ctid-based batched delete unsafe for partitioned tables.
-// id is globally unique across the whole logical table (all partitions), so this is safe for
-// both plain and partitioned tables.
+// Since this function now only ever DELETEs from plain (relkind='r') tables, id is the sole
+// PK there and is genuinely globally unique for that table — the id-based batched delete is
+// correct. (On a partitioned table the PK is (id, received_at), and id alone is only unique
+// by shared-BIGSERIAL-sequence convention across partitions — but that path is skipped here.)
 //
 // A failure on one table is logged and does not abort the remaining tables; the function
 // returns a wrapped error listing which tables failed (nil if all succeeded).
@@ -135,6 +171,21 @@ func deleteOldRows(db *gorm.DB, log *logrus.Logger, keepMonths int, tables []str
 	cutoff := retentionCutoff(keepMonths)
 	var failed []string
 	for _, t := range tables {
+		relkind, err := tableRelkind(db, t)
+		if err != nil {
+			log.Errorf("retention: checking relkind for %s failed: %v", t, err)
+			failed = append(failed, t)
+			continue
+		}
+		if relkind == "" {
+			log.Debugf("retention: %s does not exist, skipping", t)
+			continue
+		}
+		if relkind != "r" {
+			log.Infof("retention: %s is partitioned (relkind=%s), skipping row-DELETE — handled by drop_old_partitions", t, relkind)
+			continue
+		}
+
 		var total int64
 		batches := 0
 		for {
@@ -169,7 +220,8 @@ func deleteOldRows(db *gorm.DB, log *logrus.Logger, keepMonths int, tables []str
 }
 
 // RunRetention runs one full prune pass: ensure partitions, drop old partitions, delete old
-// rows from plain tables. Errors are logged, not returned — retention must never crash the app.
+// rows from whichever candidate tables turn out to be plain (see deleteOldRows). Errors are
+// logged, not returned — retention must never crash the app.
 func RunRetention(db *gorm.DB, log *logrus.Logger, keepMonths int) {
 	if err := db.Exec("SELECT create_monthly_partitions()").Error; err != nil {
 		log.Errorf("retention: create_monthly_partitions failed: %v", err)
@@ -177,7 +229,7 @@ func RunRetention(db *gorm.DB, log *logrus.Logger, keepMonths int) {
 	if err := db.Exec("SELECT drop_old_partitions(?)", keepMonths).Error; err != nil {
 		log.Errorf("retention: drop_old_partitions failed: %v", err)
 	}
-	if err := deleteOldRows(db, log, keepMonths, plainTables); err != nil {
+	if err := deleteOldRows(db, log, keepMonths, rowPruneCandidates); err != nil {
 		log.Errorf("retention: deleteOldRows failed: %v", err)
 	}
 }
