@@ -105,7 +105,7 @@ This is a BSV Blockchain P2P networking component that provides:
 
 ### Core Components
 - **P2P Client** (`cmd/main.go`): Uses `github.com/bsv-blockchain/go-p2p-message-bus` (libp2p-based) with `/dnsaddr` bootstrap discovery; runs as a passive listener (`dht_mode: "off"`)
-- **Message Storage** (`pkg/model/`): PostgreSQL with GORM, partitioned by month, with materialized views
+- **Message Storage** (`pkg/model/`): PostgreSQL with GORM; only `node_statuses` is partitioned by month, other message tables are plain and pruned by time-based row retention
 - **Parser** (`pkg/parser/`): Decodes incoming P2P messages into typed records
 - **Batch Insert Service** (`pkg/service/`): Buffers DB writes for throughput; also computes stats
 - **HTTP API** (`pkg/http/`): REST API for querying stored messages

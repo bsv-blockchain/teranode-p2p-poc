@@ -36,7 +36,7 @@ type BlockHeaderPG struct {
 	Timestamp      uint32    `gorm:"not null;index:idx_blockheaders_timestamp" json:"Timestamp"`
 	Bits           uint32    `gorm:"not null" json:"Bits"`
 	Nonce          uint64    `gorm:"not null" json:"Nonce"`
-	ReceivedAt     time.Time `gorm:"not null;default:CURRENT_TIMESTAMP" json:"ReceivedAt"`
+	ReceivedAt     time.Time `gorm:"not null;default:CURRENT_TIMESTAMP;index:idx_blockheaders_received_at" json:"ReceivedAt"`
 	CoinbaseValue  uint64    `gorm:"default:0" json:"CoinbaseValue"`
 	CoinbaseScript string    `gorm:"type:text" json:"CoinbaseScript"`
 	MinerAddress   string    `gorm:"type:varchar(100);index:idx_blockheaders_miner" json:"MinerAddress"`
@@ -59,7 +59,7 @@ type HandshakePG struct {
 	DataHubURL string    `gorm:"type:text" json:"DataHubURL"`
 	UserAgent  string    `gorm:"type:text" json:"UserAgent"`
 	Services   uint64    `gorm:"not null" json:"Services"`
-	ReceivedAt time.Time `gorm:"not null;default:CURRENT_TIMESTAMP" json:"ReceivedAt"`
+	ReceivedAt time.Time `gorm:"not null;default:CURRENT_TIMESTAMP;index:idx_handshakes_received_at" json:"ReceivedAt"`
 }
 
 func (HandshakePG) TableName() string {
@@ -78,7 +78,7 @@ type MiningOnPG struct {
 	Miner        string    `gorm:"type:varchar(100);index:idx_miningons_miner" json:"Miner"`
 	SizeInBytes  uint64    `gorm:"not null" json:"SizeInBytes"`
 	TxCount      uint64    `gorm:"not null" json:"TxCount"`
-	ReceivedAt   time.Time `gorm:"not null;default:CURRENT_TIMESTAMP" json:"ReceivedAt"`
+	ReceivedAt   time.Time `gorm:"not null;default:CURRENT_TIMESTAMP;index:idx_miningons_received_at" json:"ReceivedAt"`
 }
 
 func (MiningOnPG) TableName() string {
@@ -92,7 +92,7 @@ type SubtreePG struct {
 	Hash       string    `gorm:"type:varchar(64);not null;index:idx_subtrees_hash,type:hash" json:"Hash"`
 	DataHubURL string    `gorm:"type:text" json:"DataHubURL"`
 	PeerID     string    `gorm:"type:varchar(100);not null;index:idx_subtrees_peer_received" json:"PeerID"`
-	ReceivedAt time.Time `gorm:"not null;default:CURRENT_TIMESTAMP" json:"ReceivedAt"`
+	ReceivedAt time.Time `gorm:"not null;default:CURRENT_TIMESTAMP;index:idx_subtrees_received_at" json:"ReceivedAt"`
 }
 
 func (SubtreePG) TableName() string {
@@ -104,7 +104,7 @@ type BestBlockRequestPG struct {
 	ID         uint64    `gorm:"primaryKey;autoIncrement" json:"ID"`
 	Network    string    `gorm:"type:varchar(20);not null;index:idx_bestblock_network_received" json:"Network"`
 	PeerID     string    `gorm:"type:varchar(100);not null;index:idx_bestblock_peer_received" json:"PeerID"`
-	ReceivedAt time.Time `gorm:"not null;default:CURRENT_TIMESTAMP" json:"ReceivedAt"`
+	ReceivedAt time.Time `gorm:"not null;default:CURRENT_TIMESTAMP;index:idx_bestblock_received_at" json:"ReceivedAt"`
 }
 
 func (BestBlockRequestPG) TableName() string {

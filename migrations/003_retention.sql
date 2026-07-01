@@ -24,7 +24,7 @@ BEGIN
             start_date := date_trunc('month', CURRENT_DATE) + make_interval(months => m);
             end_date := start_date + interval '1 month';
             pname := parent.name || '_' || to_char(start_date, 'YYYY_MM');
-            IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = pname) THEN
+            IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = pname AND relnamespace = 'public'::regnamespace) THEN
                 EXECUTE format('CREATE TABLE %I PARTITION OF %I FOR VALUES FROM (%L) TO (%L)',
                     pname, parent.name, start_date, end_date);
                 RAISE NOTICE 'Created partition %', pname;
@@ -59,13 +59,17 @@ BEGIN
             JOIN pg_class c ON c.oid = i.inhrelid
             JOIN pg_class p ON p.oid = i.inhparent
             WHERE p.relname = parent.name
-              AND c.relname ~ ('^' || parent.name || '_[0-9]{4}_[0-9]{2}$')
+              AND c.relname ~ ('^' || parent.name || '_[0-9]{4}_(0[1-9]|1[0-2])$')
         LOOP
-            part_month := to_date(right(child.name, 7), 'YYYY_MM');
-            IF part_month < cutoff THEN
-                EXECUTE format('DROP TABLE IF EXISTS %I', child.name);
-                RAISE NOTICE 'Dropped old partition %', child.name;
-            END IF;
+            BEGIN
+                part_month := to_date(right(child.name, 7), 'YYYY_MM');
+                IF part_month < cutoff THEN
+                    EXECUTE format('DROP TABLE IF EXISTS %I', child.name);
+                    RAISE NOTICE 'Dropped old partition %', child.name;
+                END IF;
+            EXCEPTION WHEN others THEN
+                CONTINUE;
+            END;
         END LOOP;
     END LOOP;
 END;

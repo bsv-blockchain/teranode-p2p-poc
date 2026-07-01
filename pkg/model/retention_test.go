@@ -143,6 +143,107 @@ func TestRunRetention(t *testing.T) {
 	}
 	// Must not panic or block even when the plain tables are absent/empty; it logs and continues.
 	RunRetention(db, log, 3)
+
+	// Behavioral check: RunRetention actually prunes old rows from a plain-table-shaped table
+	// registered in plainTables' place via direct deleteOldRows call is covered elsewhere; here
+	// we verify RunRetention drives an end-to-end prune against a real plain table using the
+	// production plainTables list, by seeding one of them directly.
+	db.Exec("DROP TABLE IF EXISTS best_block_requests_run_retention_bak")
+	// Use the real best_block_requests table (part of plainTables) so RunRetention's internal
+	// call to deleteOldRows(plainTables) actually exercises it.
+	if err := db.Exec("CREATE TABLE IF NOT EXISTS best_block_requests (id bigserial primary key, network varchar(20) not null default 'test', peer_id varchar(100) not null default 'test', received_at timestamptz NOT NULL default now())").Error; err != nil {
+		t.Fatalf("ensure best_block_requests exists: %v", err)
+	}
+	db.Exec("DELETE FROM best_block_requests")
+	t.Cleanup(func() { db.Exec("DELETE FROM best_block_requests") })
+
+	if err := db.Exec(`INSERT INTO best_block_requests (network, peer_id, received_at)
+		VALUES ('test', 'test-peer', date_trunc('month', now()) - interval '12 months')`).Error; err != nil {
+		t.Fatalf("seed old row: %v", err)
+	}
+	if err := db.Exec(`INSERT INTO best_block_requests (network, peer_id, received_at)
+		VALUES ('test', 'test-peer', now())`).Error; err != nil {
+		t.Fatalf("seed current row: %v", err)
+	}
+
+	RunRetention(db, log, 3)
+
+	var remaining int64
+	db.Raw("SELECT count(*) FROM best_block_requests").Scan(&remaining)
+	if remaining != 1 {
+		t.Fatalf("RunRetention should have pruned the old row and kept the current one, got %d remaining rows", remaining)
+	}
+}
+
+// TestDeleteOldRowsPartitionSafe is a regression guard for the ctid-based batched delete bug:
+// ctid is only unique within a single heap file, so on a PARTITIONED table a ctid-based delete
+// can match and delete rows in the WRONG partition if they happen to share the same ctid slot.
+// This test forces that collision (both partitions' first row gets ctid (0,1)) and asserts the
+// in-window row survives. It FAILS against the old `WHERE ctid IN (...)` implementation and
+// PASSES against the id-based implementation.
+func TestDeleteOldRowsPartitionSafe(t *testing.T) {
+	db := testDB(t)
+	log := testLog()
+
+	const parent = "retention_delete_parts_test"
+	db.Exec("DROP TABLE IF EXISTS " + parent)
+	if err := db.Exec(fmt.Sprintf(
+		`CREATE TABLE %s (id bigserial, received_at timestamptz NOT NULL, PRIMARY KEY (id, received_at)) PARTITION BY RANGE (received_at)`,
+		parent)).Error; err != nil {
+		t.Fatalf("create partitioned parent: %v", err)
+	}
+	t.Cleanup(func() { db.Exec("DROP TABLE IF EXISTS " + parent) })
+
+	mkPartition := func(offsetMonths int) string {
+		var name, start, end string
+		db.Raw(`SELECT 'retention_delete_parts_test_' || to_char(date_trunc('month', CURRENT_DATE) + make_interval(months => ?), 'YYYY_MM')`, offsetMonths).Scan(&name)
+		db.Raw(`SELECT (date_trunc('month', CURRENT_DATE) + make_interval(months => ?))::text`, offsetMonths).Scan(&start)
+		db.Raw(`SELECT (date_trunc('month', CURRENT_DATE) + make_interval(months => ?))::text`, offsetMonths+1).Scan(&end)
+		if err := db.Exec(fmt.Sprintf(`CREATE TABLE %s PARTITION OF %s FOR VALUES FROM ('%s') TO ('%s')`, name, parent, start, end)).Error; err != nil {
+			t.Fatalf("create partition %s: %v", name, err)
+		}
+		return name
+	}
+
+	// OLD partition: well outside a 3-month retention window.
+	oldPart := mkPartition(-6)
+	// CURRENT partition: inside the 3-month window.
+	curPart := mkPartition(0)
+
+	// Insert exactly one row into each partition FIRST, so both land at ctid (0,1) within
+	// their respective partition's heap file — the collision the old ctid-based code missed.
+	oldTime := ""
+	db.Raw(`SELECT (date_trunc('month', CURRENT_DATE) + make_interval(months => -6) + interval '10 days')::text`).Scan(&oldTime)
+	if err := db.Exec(fmt.Sprintf("INSERT INTO %s (received_at) VALUES (?)", parent), oldTime).Error; err != nil {
+		t.Fatalf("insert old row: %v", err)
+	}
+	curTime := ""
+	db.Raw(`SELECT (date_trunc('month', CURRENT_DATE) + interval '10 days')::text`).Scan(&curTime)
+	if err := db.Exec(fmt.Sprintf("INSERT INTO %s (received_at) VALUES (?)", parent), curTime).Error; err != nil {
+		t.Fatalf("insert current row: %v", err)
+	}
+
+	var oldCtid, curCtid string
+	db.Raw(fmt.Sprintf("SELECT ctid::text FROM %s", oldPart)).Scan(&oldCtid)
+	db.Raw(fmt.Sprintf("SELECT ctid::text FROM %s", curPart)).Scan(&curCtid)
+	if oldCtid != curCtid {
+		t.Fatalf("test setup invariant broken: expected both partitions' first row to share ctid, got old=%s cur=%s", oldCtid, curCtid)
+	}
+
+	if err := deleteOldRows(db, log, 3, []string{parent}); err != nil {
+		t.Fatalf("deleteOldRows: %v", err)
+	}
+
+	var oldRemaining, curRemaining int64
+	db.Raw(fmt.Sprintf("SELECT count(*) FROM %s", oldPart)).Scan(&oldRemaining)
+	db.Raw(fmt.Sprintf("SELECT count(*) FROM %s", curPart)).Scan(&curRemaining)
+
+	if oldRemaining != 0 {
+		t.Fatalf("old-partition row should have been deleted, got %d remaining", oldRemaining)
+	}
+	if curRemaining != 1 {
+		t.Fatalf("current-partition row must survive (partition-unsafe delete would have removed it), got %d remaining", curRemaining)
+	}
 }
 
 func TestDropOldPartitions(t *testing.T) {

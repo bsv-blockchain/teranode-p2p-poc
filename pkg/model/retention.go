@@ -34,7 +34,7 @@ BEGIN
             start_date := date_trunc('month', CURRENT_DATE) + make_interval(months => m);
             end_date := start_date + interval '1 month';
             pname := parent.name || '_' || to_char(start_date, 'YYYY_MM');
-            IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = pname) THEN
+            IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = pname AND relnamespace = 'public'::regnamespace) THEN
                 EXECUTE format('CREATE TABLE %I PARTITION OF %I FOR VALUES FROM (%L) TO (%L)',
                     pname, parent.name, start_date, end_date);
                 RAISE NOTICE 'Created partition %', pname;
@@ -71,13 +71,17 @@ BEGIN
             JOIN pg_class c ON c.oid = i.inhrelid
             JOIN pg_class p ON p.oid = i.inhparent
             WHERE p.relname = parent.name
-              AND c.relname ~ ('^' || parent.name || '_[0-9]{4}_[0-9]{2}$')
+              AND c.relname ~ ('^' || parent.name || '_[0-9]{4}_(0[1-9]|1[0-2])$')
         LOOP
-            part_month := to_date(right(child.name, 7), 'YYYY_MM');
-            IF part_month < cutoff THEN
-                EXECUTE format('DROP TABLE IF EXISTS %I', child.name);
-                RAISE NOTICE 'Dropped old partition %', child.name;
-            END IF;
+            BEGIN
+                part_month := to_date(right(child.name, 7), 'YYYY_MM');
+                IF part_month < cutoff THEN
+                    EXECUTE format('DROP TABLE IF EXISTS %I', child.name);
+                    RAISE NOTICE 'Dropped old partition %', child.name;
+                END IF;
+            EXCEPTION WHEN others THEN
+                CONTINUE;
+            END;
         END LOOP;
     END LOOP;
 END;
@@ -110,27 +114,56 @@ func retentionCutoff(keepMonths int) time.Time {
 	return firstOfMonth.AddDate(0, -(keepMonths - 1), 0)
 }
 
+// deleteOldRowsMaxBatches is a defensive hard cap on the number of DELETE batches per table.
+// At 20000 rows/batch this bounds a single table to 2 billion rows before we bail out; it
+// should never be hit in practice and guards only against a pathological infinite loop.
+const deleteOldRowsMaxBatches = 100000
+
 // deleteOldRows removes rows older than the retention cutoff from each plain table, in
 // batches of 20000 to bound lock duration, WAL, and dead-tuple buildup. Table names must
 // come from a trusted allowlist (they are interpolated into SQL).
+//
+// The DELETE predicate uses the id (BIGSERIAL PK) rather than ctid: ctid is only unique
+// within a single heap file, so on a PARTITIONED table the same ctid can identify unrelated
+// rows in other partitions, making a ctid-based batched delete unsafe for partitioned tables.
+// id is globally unique across the whole logical table (all partitions), so this is safe for
+// both plain and partitioned tables.
+//
+// A failure on one table is logged and does not abort the remaining tables; the function
+// returns a wrapped error listing which tables failed (nil if all succeeded).
 func deleteOldRows(db *gorm.DB, log *logrus.Logger, keepMonths int, tables []string) error {
 	cutoff := retentionCutoff(keepMonths)
+	var failed []string
 	for _, t := range tables {
 		var total int64
+		batches := 0
 		for {
+			batches++
+			if batches > deleteOldRowsMaxBatches {
+				log.Warnf("retention: %s exceeded %d batches, aborting this table's prune pass (deleted %d rows so far)", t, deleteOldRowsMaxBatches, total)
+				break
+			}
 			sql := fmt.Sprintf(
-				"DELETE FROM %s WHERE ctid IN (SELECT ctid FROM %s WHERE received_at < ? LIMIT 20000)",
+				"DELETE FROM %s WHERE id IN (SELECT id FROM %s WHERE received_at < ? LIMIT 20000)",
 				t, t)
 			res := db.Exec(sql, cutoff)
 			if res.Error != nil {
-				return fmt.Errorf("delete old rows from %s: %w", t, res.Error)
+				log.Errorf("retention: delete old rows from %s failed: %v", t, res.Error)
+				failed = append(failed, t)
+				break
 			}
 			total += res.RowsAffected
+			if res.RowsAffected > 0 {
+				log.Infof("retention: %s pruning, %d rows so far", t, total)
+			}
 			if res.RowsAffected == 0 {
 				break
 			}
 		}
 		log.Infof("retention: deleted %d rows older than %s from %s", total, cutoff.Format("2006-01-02"), t)
+	}
+	if len(failed) > 0 {
+		return fmt.Errorf("delete old rows failed for tables: %v", failed)
 	}
 	return nil
 }

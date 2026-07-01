@@ -148,7 +148,7 @@ func main() {
 	}
 
 	if err := model.EnsureRetentionObjects(db, log); err != nil {
-		log.Warnf("Failed to ensure retention objects: %v", err)
+		log.Errorf("Failed to ensure retention objects: %v — retention is impaired, disk usage may grow unbounded", err)
 	}
 
 	// Create partitions for current and next months if they don't exist
