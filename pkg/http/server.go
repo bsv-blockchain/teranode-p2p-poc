@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -1087,13 +1088,20 @@ func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsServ
 	}))
 
 	// Static file serving for React app - MUST be registered last
+	const reactBuildDir = "./frontend-react/build"
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		// Check if the requested file exists in React build
-		path := "./frontend-react/build" + r.URL.Path
-		if _, err := os.Stat(path); err == nil {
-			// File exists, serve it
-			http.FileServer(http.Dir("./frontend-react/build")).ServeHTTP(w, r)
-			return
+		// Confine the requested path to reactBuildDir before touching the
+		// filesystem to prevent path traversal (CodeQL go/path-injection).
+		// filepath.Clean("/"+path) roots the request so ".." segments cannot
+		// escape, and the prefix check rejects anything outside the build dir.
+		candidate := filepath.Join(reactBuildDir, filepath.Clean("/"+r.URL.Path))
+		if candidate == filepath.Clean(reactBuildDir) ||
+			strings.HasPrefix(candidate, filepath.Clean(reactBuildDir)+string(os.PathSeparator)) {
+			if _, err := os.Stat(candidate); err == nil {
+				// File exists within the build dir, serve it
+				http.FileServer(http.Dir(reactBuildDir)).ServeHTTP(w, r)
+				return
+			}
 		}
 
 		// For any non-existent path, serve index.html (for React Router)
