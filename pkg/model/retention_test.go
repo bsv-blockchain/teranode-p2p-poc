@@ -67,3 +67,65 @@ func TestEnsureRetentionObjectsIdempotent(t *testing.T) {
 		t.Fatalf("drop_old_partitions not callable: %v", err)
 	}
 }
+
+func TestDeleteOldRows(t *testing.T) {
+	db := testDB(t)
+	log := testLog()
+
+	if err := db.Exec("DROP TABLE IF EXISTS retention_prune_test").Error; err != nil {
+		t.Fatalf("drop temp: %v", err)
+	}
+	if err := db.Exec("CREATE TABLE retention_prune_test (id bigserial primary key, received_at timestamptz NOT NULL)").Error; err != nil {
+		t.Fatalf("create temp: %v", err)
+	}
+	t.Cleanup(func() { db.Exec("DROP TABLE IF EXISTS retention_prune_test") })
+
+	// Seed one row per month for the last 6 months plus this month, at day 15.
+	if err := db.Exec(`
+		INSERT INTO retention_prune_test (received_at)
+		SELECT date_trunc('month', now()) - make_interval(months => g) + interval '14 days'
+		FROM generate_series(0, 6) g`).Error; err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	// keepMonths=3 -> cutoff = start of (this month - 2). Keep months offset 0,1,2 -> 3 rows.
+	if err := deleteOldRows(db, log, 3, []string{"retention_prune_test"}); err != nil {
+		t.Fatalf("deleteOldRows: %v", err)
+	}
+
+	var remaining int64
+	db.Raw("SELECT count(*) FROM retention_prune_test").Scan(&remaining)
+	if remaining != 3 {
+		t.Fatalf("expected 3 rows within 3-month window, got %d", remaining)
+	}
+
+	// A row exactly at the cutoff month boundary (offset 2, day 1) must be kept.
+	db.Exec("DELETE FROM retention_prune_test")
+	db.Exec(`INSERT INTO retention_prune_test (received_at)
+		VALUES (date_trunc('month', now()) - interval '2 months')`) // exactly at cutoff
+	if err := deleteOldRows(db, log, 3, []string{"retention_prune_test"}); err != nil {
+		t.Fatalf("deleteOldRows boundary: %v", err)
+	}
+	db.Raw("SELECT count(*) FROM retention_prune_test").Scan(&remaining)
+	if remaining != 1 {
+		t.Fatalf("cutoff-boundary row should be kept, got %d rows", remaining)
+	}
+}
+
+func TestDeleteOldRowsFloorsKeepMonths(t *testing.T) {
+	db := testDB(t)
+	log := testLog()
+	db.Exec("DROP TABLE IF EXISTS retention_floor_test")
+	db.Exec("CREATE TABLE retention_floor_test (id bigserial primary key, received_at timestamptz NOT NULL)")
+	t.Cleanup(func() { db.Exec("DROP TABLE IF EXISTS retention_floor_test") })
+	// One row in the current month must survive keepMonths=0 (floored to 1).
+	db.Exec("INSERT INTO retention_floor_test (received_at) VALUES (now())")
+	if err := deleteOldRows(db, log, 0, []string{"retention_floor_test"}); err != nil {
+		t.Fatalf("deleteOldRows: %v", err)
+	}
+	var remaining int64
+	db.Raw("SELECT count(*) FROM retention_floor_test").Scan(&remaining)
+	if remaining != 1 {
+		t.Fatalf("keepMonths=0 must be floored to 1 and keep current month; got %d", remaining)
+	}
+}

@@ -99,6 +99,41 @@ func EnsureRetentionObjects(db *gorm.DB, log *logrus.Logger) error {
 	return nil
 }
 
-// deleteOldRows and RunRetention are added in later tasks.
+// retentionCutoff returns the start of the month (current − (keepMonths−1)) in UTC.
+// Rows/partitions strictly older than this are pruned. keepMonths is floored at 1.
+func retentionCutoff(keepMonths int) time.Time {
+	if keepMonths < 1 {
+		keepMonths = 1
+	}
+	now := time.Now().UTC()
+	firstOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
+	return firstOfMonth.AddDate(0, -(keepMonths - 1), 0)
+}
+
+// deleteOldRows removes rows older than the retention cutoff from each plain table, in
+// batches of 20000 to bound lock duration, WAL, and dead-tuple buildup. Table names must
+// come from a trusted allowlist (they are interpolated into SQL).
+func deleteOldRows(db *gorm.DB, log *logrus.Logger, keepMonths int, tables []string) error {
+	cutoff := retentionCutoff(keepMonths)
+	for _, t := range tables {
+		var total int64
+		for {
+			sql := fmt.Sprintf(
+				"DELETE FROM %s WHERE ctid IN (SELECT ctid FROM %s WHERE received_at < ? LIMIT 20000)",
+				t, t)
+			res := db.Exec(sql, cutoff)
+			if res.Error != nil {
+				return fmt.Errorf("delete old rows from %s: %w", t, res.Error)
+			}
+			total += res.RowsAffected
+			if res.RowsAffected == 0 {
+				break
+			}
+		}
+		log.Infof("retention: deleted %d rows older than %s from %s", total, cutoff.Format("2006-01-02"), t)
+	}
+	return nil
+}
+
+// RunRetention is added in a later task.
 var _ = plainTables
-var _ = time.Now
