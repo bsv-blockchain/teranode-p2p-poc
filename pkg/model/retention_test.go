@@ -3,6 +3,7 @@ package model
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -11,19 +12,35 @@ import (
 	"gorm.io/gorm/logger"
 )
 
+// testDSNHostRE extracts the `host=...` field from a libpq key=value DSN string (the format
+// used throughout this package and by TERANODE_P2P_TEST_DSN). A simple field parse — no new
+// deps needed for this guard.
+var testDSNHostRE = regexp.MustCompile(`host=(\S+)`)
+
 // testDB connects to the DSN in TERANODE_P2P_TEST_DSN, or skips the test if unset.
 // Start one with: docker-compose -f docker-compose.postgres.yml up -d
 // then: TERANODE_P2P_TEST_DSN="host=localhost port=5432 user=teranode password=teranode dbname=teranode_p2p sslmode=disable TimeZone=UTC"
 //
 // WARNING: TERANODE_P2P_TEST_DSN must point ONLY at a throwaway/local test database. These
-// tests call drop_old_partitions, which scans and drops old partitions across ALL partitioned
-// tables in the target DB — pointing this at a real/shared database will drop real data.
+// tests call drop_old_partitions, which scans and drops old partitions across ALL allowlisted
+// partitioned tables in the target DB — pointing this at a real/shared database will drop real
+// data. As a guard, testDB refuses to connect to any non-local host unless
+// TERANODE_P2P_TEST_ALLOW_REMOTE=1 is explicitly set (see the host check below).
 func testDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	dsn := os.Getenv("TERANODE_P2P_TEST_DSN")
 	if dsn == "" {
 		t.Skip("TERANODE_P2P_TEST_DSN not set; skipping DB integration test")
 	}
+
+	host := ""
+	if m := testDSNHostRE.FindStringSubmatch(dsn); m != nil {
+		host = m[1]
+	}
+	if host != "localhost" && host != "127.0.0.1" && os.Getenv("TERANODE_P2P_TEST_ALLOW_REMOTE") != "1" {
+		t.Fatalf("refusing to run destructive retention tests against non-local host %q; set TERANODE_P2P_TEST_ALLOW_REMOTE=1 to override", host)
+	}
+
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger:                 logger.Default.LogMode(logger.Silent),
 		SkipDefaultTransaction: true,
@@ -314,52 +331,198 @@ func TestDeleteOldRowsRoutesByShape(t *testing.T) {
 	// nil above already covering all three tables in one call.
 }
 
-func TestDropOldPartitions(t *testing.T) {
+// mkAgedPartition creates a range partition of parent named "<parent>_YYYY_MM" for the month
+// CURRENT_DATE+offsetMonths, with bounds exactly matching that calendar month (the "well-behaved"
+// case: name and bound agree). Returns the partition's relname.
+func mkAgedPartition(t *testing.T, db *gorm.DB, parent string, offsetMonths int) string {
+	t.Helper()
+	var name, start, end string
+	db.Raw(`SELECT ? || '_' || to_char(date_trunc('month', CURRENT_DATE) + make_interval(months => ?), 'YYYY_MM')`, parent, offsetMonths).Scan(&name)
+	db.Raw(`SELECT (date_trunc('month', CURRENT_DATE) + make_interval(months => ?))::text`, offsetMonths).Scan(&start)
+	db.Raw(`SELECT (date_trunc('month', CURRENT_DATE) + make_interval(months => ?))::text`, offsetMonths+1).Scan(&end)
+	if err := db.Exec(fmt.Sprintf(`CREATE TABLE %s PARTITION OF %s FOR VALUES FROM ('%s') TO ('%s')`, name, parent, start, end)).Error; err != nil {
+		t.Fatalf("create partition %s: %v", name, err)
+	}
+	return name
+}
+
+func partitionExists(db *gorm.DB, name string) bool {
+	var n int64
+	db.Raw("SELECT count(*) FROM pg_class WHERE relname = ?", name).Scan(&n)
+	return n > 0
+}
+
+// TestDropOldPartitionsSkipsNonAllowlisted is the regression test for B: create_monthly_partitions
+// and drop_old_partitions now only ever touch the six hardcoded app table names. A partitioned
+// table with a name OUTSIDE that allowlist must be left completely untouched by
+// drop_old_partitions, even though it satisfies relkind='p' and has an old-named partition that
+// would otherwise be dropped.
+func TestDropOldPartitionsSkipsNonAllowlisted(t *testing.T) {
 	db := testDB(t)
 	log := testLog()
 	if err := EnsureRetentionObjects(db, log); err != nil {
 		t.Fatalf("ensure: %v", err)
 	}
 
-	db.Exec("DROP TABLE IF EXISTS retention_parts_test")
-	if err := db.Exec(`CREATE TABLE retention_parts_test (id bigserial, received_at timestamptz NOT NULL, PRIMARY KEY (id, received_at)) PARTITION BY RANGE (received_at)`).Error; err != nil {
+	const parent = "retention_parts_test" // deliberately NOT in the allowlist
+	db.Exec("DROP TABLE IF EXISTS " + parent)
+	if err := db.Exec(fmt.Sprintf(`CREATE TABLE %s (id bigserial, received_at timestamptz NOT NULL, PRIMARY KEY (id, received_at)) PARTITION BY RANGE (received_at)`, parent)).Error; err != nil {
 		t.Fatalf("create partitioned: %v", err)
 	}
-	t.Cleanup(func() { db.Exec("DROP TABLE IF EXISTS retention_parts_test") })
+	t.Cleanup(func() { db.Exec("DROP TABLE IF EXISTS " + parent) })
 
-	// One old partition (5 months ago), one current, one next — named <parent>_YYYY_MM.
-	mk := func(offset int) string {
-		var name string
-		db.Raw(`SELECT 'retention_parts_test_' || to_char(date_trunc('month', CURRENT_DATE) + make_interval(months => ?), 'YYYY_MM')`, offset).Scan(&name)
-		start := ""
-		end := ""
-		db.Raw(`SELECT (date_trunc('month', CURRENT_DATE) + make_interval(months => ?))::text`, offset).Scan(&start)
-		db.Raw(`SELECT (date_trunc('month', CURRENT_DATE) + make_interval(months => ?))::text`, offset+1).Scan(&end)
-		if err := db.Exec(fmt.Sprintf(`CREATE TABLE %s PARTITION OF retention_parts_test FOR VALUES FROM ('%s') TO ('%s')`, name, start, end)).Error; err != nil {
-			t.Fatalf("create partition %s: %v", name, err)
-		}
-		return name
-	}
-	oldName := mk(-5)
-	curName := mk(0)
-	nextName := mk(1)
+	oldName := mkAgedPartition(t, db, parent, -5)
+	curName := mkAgedPartition(t, db, parent, 0)
+	nextName := mkAgedPartition(t, db, parent, 1)
 
 	if err := db.Exec("SELECT drop_old_partitions(3)").Error; err != nil {
 		t.Fatalf("drop_old_partitions: %v", err)
 	}
 
-	exists := func(name string) bool {
-		var n int64
-		db.Raw("SELECT count(*) FROM pg_class WHERE relname = ?", name).Scan(&n)
-		return n > 0
+	// None of the partitions should have moved — the parent name isn't in the allowlist, so
+	// drop_old_partitions never even looks at it.
+	if !partitionExists(db, oldName) {
+		t.Fatalf("old partition %s of a non-allowlisted table must survive (not in allowlist -> untouched)", oldName)
 	}
-	if exists(oldName) {
-		t.Fatalf("old partition %s should have been dropped", oldName)
-	}
-	if !exists(curName) {
+	if !partitionExists(db, curName) {
 		t.Fatalf("current partition %s must be kept", curName)
 	}
-	if !exists(nextName) {
+	if !partitionExists(db, nextName) {
 		t.Fatalf("next partition %s must be kept", nextName)
 	}
+}
+
+// withSwappedAllowlistedTable runs fn inside a transaction in which the REAL allowlisted table
+// `name` (e.g. "subtrees") — and all of its existing child partitions — have been renamed out of
+// the way, so `name` (and the same "_YYYY_MM" partition names the test will create) are free for
+// the test to reuse as a throwaway partitioned table. This exercises the actual
+// create_monthly_partitions / drop_old_partitions DROP code path — the allowlist matches on
+// exact relname, so there is no way to exercise the "this name IS allowlisted, and gets dropped"
+// branch other than using one of the six real names. ALTER TABLE ... RENAME only renames the
+// named relation, not its children, so existing partitions (e.g. subtrees_2026_07) must be
+// renamed individually too or the test's same-named replacement partitions collide with them.
+//
+// The whole thing runs in one transaction that is ALWAYS rolled back (never committed), so the
+// real table, its partitions, and their data are unconditionally restored — including if fn
+// calls t.Fatalf, since t.Fatalf only unwinds this goroutine via runtime.Goexit while deferred
+// rollback still runs. This is deliberately safer than a rename-then-restore-in-Cleanup approach,
+// which would leave a crash-shaped window where the real table is temporarily missing.
+func withSwappedAllowlistedTable(t *testing.T, db *gorm.DB, name string, fn func(tx *gorm.DB)) {
+	t.Helper()
+	tx := db.Begin()
+	if tx.Error != nil {
+		t.Fatalf("begin tx: %v", tx.Error)
+	}
+	defer tx.Rollback()
+
+	suffix := "_test_backup_" + fmt.Sprint(os.Getpid())
+
+	var children []string
+	if err := tx.Raw(
+		`SELECT c.relname FROM pg_inherits i
+		 JOIN pg_class c ON c.oid = i.inhrelid
+		 JOIN pg_class p ON p.oid = i.inhparent
+		 WHERE p.relname = ?`, name).Scan(&children).Error; err != nil {
+		t.Fatalf("list existing children of %s: %v", name, err)
+	}
+	for _, child := range children {
+		if err := tx.Exec(fmt.Sprintf("ALTER TABLE %s RENAME TO %s", child, child+suffix)).Error; err != nil {
+			t.Fatalf("rename real child %s out of the way: %v", child, err)
+		}
+	}
+
+	if err := tx.Exec(fmt.Sprintf("ALTER TABLE %s RENAME TO %s", name, name+suffix)).Error; err != nil {
+		t.Fatalf("rename real %s out of the way: %v", name, err)
+	}
+
+	fn(tx)
+}
+
+// TestDropOldPartitionsDropsAllowlisted proves the actual drop path fires for a table whose name
+// IS in the allowlist (B's complement: allowlisted names still work normally). Runs entirely
+// inside a rolled-back transaction against the real "subtrees" table name — see
+// withSwappedAllowlistedTable for why that's safe.
+func TestDropOldPartitionsDropsAllowlisted(t *testing.T) {
+	db := testDB(t)
+	log := testLog()
+	if err := EnsureRetentionObjects(db, log); err != nil {
+		t.Fatalf("ensure: %v", err)
+	}
+
+	withSwappedAllowlistedTable(t, db, "subtrees", func(tx *gorm.DB) {
+		if err := tx.Exec(`CREATE TABLE subtrees (id bigserial, received_at timestamptz NOT NULL, PRIMARY KEY (id, received_at)) PARTITION BY RANGE (received_at)`).Error; err != nil {
+			t.Fatalf("create throwaway subtrees: %v", err)
+		}
+
+		oldName := mkAgedPartition(t, tx, "subtrees", -5)
+		curName := mkAgedPartition(t, tx, "subtrees", 0)
+		nextName := mkAgedPartition(t, tx, "subtrees", 1)
+
+		if err := tx.Exec("SELECT drop_old_partitions(3)").Error; err != nil {
+			t.Fatalf("drop_old_partitions: %v", err)
+		}
+
+		if partitionExists(tx, oldName) {
+			t.Fatalf("old partition %s of allowlisted table subtrees should have been dropped", oldName)
+		}
+		if !partitionExists(tx, curName) {
+			t.Fatalf("current partition %s must be kept", curName)
+		}
+		if !partitionExists(tx, nextName) {
+			t.Fatalf("next partition %s must be kept", nextName)
+		}
+	})
+}
+
+// TestDropOldPartitionsGuardsInWindowBound is the regression test for G: drop_old_partitions
+// selects candidates by parsing the "_YYYY_MM" name suffix, but must not trust the name alone —
+// it double-checks the partition's actual rows before dropping. This creates a partition NAMED
+// as old (5 months back, outside a 3-month window) but whose actual FOR VALUES bound extends
+// into the retention window, inserts an in-window row into it, and asserts drop_old_partitions
+// leaves it alone (the in-window row survives) despite the misleading name.
+func TestDropOldPartitionsGuardsInWindowBound(t *testing.T) {
+	db := testDB(t)
+	log := testLog()
+	if err := EnsureRetentionObjects(db, log); err != nil {
+		t.Fatalf("ensure: %v", err)
+	}
+
+	withSwappedAllowlistedTable(t, db, "subtrees", func(tx *gorm.DB) {
+		if err := tx.Exec(`CREATE TABLE subtrees (id bigserial, received_at timestamptz NOT NULL, PRIMARY KEY (id, received_at)) PARTITION BY RANGE (received_at)`).Error; err != nil {
+			t.Fatalf("create throwaway subtrees: %v", err)
+		}
+
+		// Partition named "_YYYY_MM" for 5 months ago (outside a 3-month window, so its NAME
+		// says "drop me"), but its actual bound runs from 5 months ago all the way to NOW +
+		// 1 month — i.e. it also covers the entire in-window period.
+		var mispartName, start, end string
+		tx.Raw(`SELECT 'subtrees_' || to_char(date_trunc('month', CURRENT_DATE) + make_interval(months => -5), 'YYYY_MM')`).Scan(&mispartName)
+		tx.Raw(`SELECT (date_trunc('month', CURRENT_DATE) + make_interval(months => -5))::text`).Scan(&start)
+		tx.Raw(`SELECT (date_trunc('month', CURRENT_DATE) + make_interval(months => 2))::text`).Scan(&end)
+		if err := tx.Exec(fmt.Sprintf(`CREATE TABLE %s PARTITION OF subtrees FOR VALUES FROM ('%s') TO ('%s')`, mispartName, start, end)).Error; err != nil {
+			t.Fatalf("create mis-bounded partition: %v", err)
+		}
+
+		// Insert an in-window row (today) into the mis-bounded partition via the parent.
+		if err := tx.Exec("INSERT INTO subtrees (received_at) VALUES (now())").Error; err != nil {
+			t.Fatalf("insert in-window row: %v", err)
+		}
+		var rowCount int64
+		tx.Raw(fmt.Sprintf("SELECT count(*) FROM %s", mispartName)).Scan(&rowCount)
+		if rowCount != 1 {
+			t.Fatalf("test setup invariant broken: expected the in-window row to land in %s, got %d rows there", mispartName, rowCount)
+		}
+
+		if err := tx.Exec("SELECT drop_old_partitions(3)").Error; err != nil {
+			t.Fatalf("drop_old_partitions: %v", err)
+		}
+
+		if !partitionExists(tx, mispartName) {
+			t.Fatalf("partition %s holds an in-window row despite its old-looking name; it must NOT be dropped", mispartName)
+		}
+		tx.Raw(fmt.Sprintf("SELECT count(*) FROM %s", mispartName)).Scan(&rowCount)
+		if rowCount != 1 {
+			t.Fatalf("in-window row must survive in %s, got %d rows", mispartName, rowCount)
+		}
+	})
 }

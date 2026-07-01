@@ -3,9 +3,10 @@
 -- pkg/model/retention.go (EnsureRetentionObjects); this file exists for manual parity only.
 
 -- Remove the dead rejected_txes table (feature removed in commit a31e3e0).
-DROP TABLE IF EXISTS rejected_txes;
+DROP TABLE IF EXISTS public.rejected_txes;
 
--- Ensure current + next month partitions for every partitioned table (relkind='p').
+-- Ensure current + next month partitions for every partitioned table (relkind='p') that is
+-- also in this app's table allowlist.
 CREATE OR REPLACE FUNCTION create_monthly_partitions()
 RETURNS void AS $$
 DECLARE
@@ -15,10 +16,12 @@ DECLARE
     end_date date;
     pname text;
 BEGIN
+    SET LOCAL lock_timeout = '5s';
     FOR parent IN
         SELECT c.relname AS name FROM pg_class c
         JOIN pg_namespace n ON n.oid = c.relnamespace
         WHERE c.relkind = 'p' AND n.nspname = 'public'
+          AND c.relname = ANY(ARRAY['blocks','block_headers','handshakes','mining_ons','subtrees','node_statuses'])
     LOOP
         FOR m IN 0..1 LOOP
             start_date := date_trunc('month', CURRENT_DATE) + make_interval(months => m);
@@ -34,7 +37,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Drop month-partitions older than the retention window across all partitioned tables.
+-- Drop month-partitions older than the retention window across all partitioned tables that are
+-- also in this app's table allowlist. Before dropping, double-checks the partition holds no
+-- in-window rows — protects against a partition whose actual bound is wider than its name
+-- suggests (dropping by name alone could otherwise destroy in-window rows).
 CREATE OR REPLACE FUNCTION drop_old_partitions(keep_months int)
 RETURNS void AS $$
 DECLARE
@@ -42,7 +48,9 @@ DECLARE
     child record;
     cutoff date;
     part_month date;
+    has_inwindow boolean;
 BEGIN
+    SET LOCAL lock_timeout = '5s';
     IF keep_months < 1 THEN
         keep_months := 1;
     END IF;
@@ -52,6 +60,7 @@ BEGIN
         SELECT c.relname AS name FROM pg_class c
         JOIN pg_namespace n ON n.oid = c.relnamespace
         WHERE c.relkind = 'p' AND n.nspname = 'public'
+          AND c.relname = ANY(ARRAY['blocks','block_headers','handshakes','mining_ons','subtrees','node_statuses'])
     LOOP
         FOR child IN
             SELECT c.relname AS name
@@ -64,6 +73,11 @@ BEGIN
             BEGIN
                 part_month := to_date(right(child.name, 7), 'YYYY_MM');
                 IF part_month < cutoff THEN
+                    EXECUTE format('SELECT EXISTS(SELECT 1 FROM %I WHERE received_at >= %L)', child.name, cutoff) INTO has_inwindow;
+                    IF has_inwindow THEN
+                        RAISE WARNING 'drop_old_partitions: skipping % — holds in-window rows (received_at >= %)', child.name, cutoff;
+                        CONTINUE;
+                    END IF;
                     EXECUTE format('DROP TABLE IF EXISTS %I', child.name);
                     RAISE NOTICE 'Dropped old partition %', child.name;
                 END IF;
@@ -78,7 +92,8 @@ $$ LANGUAGE plpgsql;
 
 -- Indexes referenced by the Go model tags (models_postgres.go) for tables whose shape varies
 -- by deployment (plain via AutoMigrate in PROD, partitioned via 001 locally). IF NOT EXISTS is
--- safe to run against either shape.
+-- safe to run against either shape. The application also executes these at startup (see
+-- pkg/model/retention.go, EnsureRetentionObjects) — this file is for manual/reference parity.
 CREATE INDEX IF NOT EXISTS idx_blockheaders_received_at ON block_headers (received_at);
 CREATE INDEX IF NOT EXISTS idx_handshakes_received_at ON handshakes (received_at);
 CREATE INDEX IF NOT EXISTS idx_miningons_received_at ON mining_ons (received_at);
