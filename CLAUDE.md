@@ -86,14 +86,18 @@ docker run -p 8080:8080 -v $(pwd)/config.yaml:/config.yaml teranode-p2p-poc
 ```
 
 ### Testing
-No test files currently exist in the codebase. When adding tests, use Go's standard testing framework:
 ```bash
-# Run tests (when they exist)
+# Run tests
 go test ./...
 
 # Run tests with coverage
 go test -cover ./...
 ```
+
+Some tests in `pkg/model` (e.g. `retention_test.go`) are DB integration tests gated on the
+`TERANODE_P2P_TEST_DSN` environment variable; they are skipped if it is unset. **`TERANODE_P2P_TEST_DSN`
+must point ONLY at a throwaway/local test database** — these tests call `drop_old_partitions`, which
+scans and drops old partitions across ALL partitioned tables in the target DB.
 
 ## Architecture Overview
 
@@ -128,7 +132,8 @@ The application requires `config.yaml` with these key sections:
 - `database`: PostgreSQL `host`, `port`, `user`, `password`, `name`, `sslmode`
 - `networks`: List of BSV network names; topics are generated per network
 - `redis` (optional): Cache layer
-- `performance`, `monitoring` (optional): Tuning knobs
+- `performance` (optional): Tuning knobs, including `partition_retention_months` (data retention window; see Runtime Behavior)
+- `monitoring` (optional): Tuning knobs
 
 Environment variables can override config values using `TERANODE_P2P_` prefix with underscores replacing dots.
 
@@ -147,6 +152,7 @@ PostgreSQL must be running externally — use `docker-compose -f docker-compose.
 - P2P node logs connected peer count every 2 minutes
 - WebSocket endpoint: `/ws`, Frontend served at `/`
 - Server automatically serves React build if available, falls back to legacy HTML
+- Data retention: `performance.partition_retention_months` (default 3) controls how much history is kept. A daily in-app pass drops old `node_statuses` partitions and row-DELETEs older rows from the plain message tables. `rejected_txes` was removed and is dropped on startup.
 
 ### Frontend Architecture
 - **React/TypeScript**: Modern component-based architecture

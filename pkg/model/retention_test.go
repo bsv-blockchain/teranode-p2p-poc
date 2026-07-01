@@ -14,6 +14,10 @@ import (
 // testDB connects to the DSN in TERANODE_P2P_TEST_DSN, or skips the test if unset.
 // Start one with: docker-compose -f docker-compose.postgres.yml up -d
 // then: TERANODE_P2P_TEST_DSN="host=localhost port=5432 user=teranode password=teranode dbname=teranode_p2p sslmode=disable TimeZone=UTC"
+//
+// WARNING: TERANODE_P2P_TEST_DSN must point ONLY at a throwaway/local test database. These
+// tests call drop_old_partitions, which scans and drops old partitions across ALL partitioned
+// tables in the target DB — pointing this at a real/shared database will drop real data.
 func testDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	dsn := os.Getenv("TERANODE_P2P_TEST_DSN")
