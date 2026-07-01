@@ -86,14 +86,18 @@ docker run -p 8080:8080 -v $(pwd)/config.yaml:/config.yaml teranode-p2p-poc
 ```
 
 ### Testing
-No test files currently exist in the codebase. When adding tests, use Go's standard testing framework:
 ```bash
-# Run tests (when they exist)
+# Run tests
 go test ./...
 
 # Run tests with coverage
 go test -cover ./...
 ```
+
+Some tests in `pkg/model` (e.g. `retention_test.go`) are DB integration tests gated on the
+`TERANODE_P2P_TEST_DSN` environment variable; they are skipped if it is unset. **`TERANODE_P2P_TEST_DSN`
+must point ONLY at a throwaway/local test database** — these tests call `drop_old_partitions`, which
+scans and drops old partitions across ALL partitioned tables in the target DB.
 
 ## Architecture Overview
 
@@ -101,7 +105,7 @@ This is a BSV Blockchain P2P networking component that provides:
 
 ### Core Components
 - **P2P Client** (`cmd/main.go`): Uses `github.com/bsv-blockchain/go-p2p-message-bus` (libp2p-based) with `/dnsaddr` bootstrap discovery; runs as a passive listener (`dht_mode: "off"`)
-- **Message Storage** (`pkg/model/`): PostgreSQL with GORM, partitioned by month, with materialized views
+- **Message Storage** (`pkg/model/`): PostgreSQL with GORM. `node_statuses` is always partitioned by month. The other message tables' shape (plain vs partitioned) varies by deployment: PROD has them PLAIN (built by GORM `AutoMigrate`), while `migrations/001` and the local docker DB provision them PARTITIONED. Retention detects each table's actual shape at runtime via `pg_class.relkind` (see below) rather than assuming either — the code handles both.
 - **Parser** (`pkg/parser/`): Decodes incoming P2P messages into typed records
 - **Batch Insert Service** (`pkg/service/`): Buffers DB writes for throughput; also computes stats
 - **HTTP API** (`pkg/http/`): REST API for querying stored messages
@@ -128,7 +132,8 @@ The application requires `config.yaml` with these key sections:
 - `database`: PostgreSQL `host`, `port`, `user`, `password`, `name`, `sslmode`
 - `networks`: List of BSV network names; topics are generated per network
 - `redis` (optional): Cache layer
-- `performance`, `monitoring` (optional): Tuning knobs
+- `performance` (optional): Tuning knobs, including `partition_retention_months` (data retention window; see Runtime Behavior)
+- `monitoring` (optional): Tuning knobs
 
 Environment variables can override config values using `TERANODE_P2P_` prefix with underscores replacing dots.
 
@@ -147,6 +152,7 @@ PostgreSQL must be running externally — use `docker-compose -f docker-compose.
 - P2P node logs connected peer count every 2 minutes
 - WebSocket endpoint: `/ws`, Frontend served at `/`
 - Server automatically serves React build if available, falls back to legacy HTML
+- Data retention: `performance.partition_retention_months` (default 3) controls how much history is kept. A daily in-app pass (plus a synchronous pass at startup, before P2P subscribe) ensures current+next partitions exist, then routes pruning per table by its *actual* runtime shape (`pg_class.relkind`, checked per table in `deleteOldRows`): partitioned tables (`relkind='p'`) are pruned by dropping old partitions (`drop_old_partitions`); plain tables (`relkind='r'`) are pruned by batched row DELETE; a table that doesn't exist in this deployment's schema is skipped silently. `node_statuses` is always partitioned; the remaining message tables (`blocks`, `block_headers`, `handshakes`, `mining_ons`, `subtrees`, `best_block_requests`) are checked individually since PROD has them plain while `migrations/001`/local docker have them partitioned. `rejected_txes` was removed and is dropped on startup.
 
 ### Frontend Architecture
 - **React/TypeScript**: Modern component-based architecture

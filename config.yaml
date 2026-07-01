@@ -50,7 +50,7 @@ performance:
   batch_interval: 5  # Seconds between batch flushes
   stats_interval: 60  # Seconds between stats calculations
   materialized_view_refresh: 300  # Seconds between materialized view refreshes
-  partition_cleanup_days: 90  # Days to keep old partitions
+  partition_retention_months: 3  # Keep current + (N-1) prior months; older data is pruned
 
 # Monitoring
 monitoring:

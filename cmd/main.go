@@ -147,10 +147,19 @@ func main() {
 		log.Info("Database schema check completed")
 	}
 
-	// Create partitions for current and next months if they don't exist
+	if err := model.EnsureRetentionObjects(db, log); err != nil {
+		log.Errorf("Failed to ensure retention objects: %v — retention is impaired, disk usage may grow unbounded", err)
+	}
+
+	// Create partitions for current and next months if they don't exist.
+	// node_statuses is always partitioned by this app (created PARTITION BY RANGE above), so it
+	// is handled explicitly here. The other message tables' shape varies by deployment (plain in
+	// PROD via AutoMigrate, partitioned via migrations/001 / local docker) and is handled by the
+	// synchronous create_monthly_partitions() call below plus runtime relkind detection in
+	// pkg/model/retention.go — not by this loop.
 	log.Info("Creating database partitions for current month...")
 	currentTime := time.Now()
-	partitionTables := []string{"blocks", "block_headers", "handshakes", "mining_ons", "subtrees", "node_statuses"}
+	partitionTables := []string{"node_statuses"}
 
 	for _, tableName := range partitionTables {
 		// Create partition for current month
@@ -214,6 +223,24 @@ func main() {
 	db.Exec(`REFRESH MATERIALIZED VIEW IF EXISTS network_activity_summary`)
 	db.Exec(`REFRESH MATERIALIZED VIEW IF EXISTS peer_activity_summary`)
 	db.Exec(`REFRESH MATERIALIZED VIEW IF EXISTS latest_block_heights`)
+
+	// Synchronously ensure current+next month partitions exist for EVERY partitioned table
+	// (relkind='p'), whatever this deployment's schema shape turns out to be — PROD has the
+	// message tables plain and only node_statuses partitioned, but migrations/001 and local
+	// docker have all of them partitioned. This must complete before the P2P client
+	// subscribes/starts accepting writes below, closing the startup race where an insert into
+	// a partitioned table could fail with "no partition found for row" if the async 24h
+	// retention goroutine hasn't run yet. create_monthly_partitions() is fast (metadata-only).
+	log.Info("Ensuring monthly partitions exist for all partitioned tables...")
+	if err := db.Exec("SELECT create_monthly_partitions()").Error; err != nil {
+		log.Errorf("Failed to create monthly partitions: %v", err)
+	}
+
+	retentionMonths := viper.GetInt("performance.partition_retention_months")
+	if retentionMonths < 1 {
+		retentionMonths = 3
+	}
+	log.Infof("Data retention: keeping %d month(s)", retentionMonths)
 
 	// Initialize batch insert service
 	batchService := service.NewBatchInsertService(db, log, 1000, 5*time.Second)
@@ -522,22 +549,18 @@ func main() {
 		}
 	}()
 
-	// Create monthly partitions proactively
+	// Run retention (create partitions, drop old partitions, delete old rows) daily
 	go func() {
 		ticker := time.NewTicker(24 * time.Hour)
 		defer ticker.Stop()
 
-		// Run once on startup
-		if err := db.Exec("SELECT create_monthly_partitions()").Error; err != nil {
-			log.Errorf("Failed to create monthly partitions: %v", err)
-		}
+		// Run once on startup — reclaims the existing backlog immediately.
+		model.RunRetention(db, log, retentionMonths)
 
 		for {
 			select {
 			case <-ticker.C:
-				if err := db.Exec("SELECT create_monthly_partitions()").Error; err != nil {
-					log.Errorf("Failed to create monthly partitions: %v", err)
-				}
+				model.RunRetention(db, log, retentionMonths)
 			}
 		}
 	}()

@@ -1,3 +1,6 @@
 *.db*
 .idea/
 teranode-p2p-poc
+
+# Local design/brainstorm specs — not shipped with code
+docs/superpowers/
