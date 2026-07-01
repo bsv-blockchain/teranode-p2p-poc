@@ -147,10 +147,15 @@ func main() {
 		log.Info("Database schema check completed")
 	}
 
+	if err := model.EnsureRetentionObjects(db, log); err != nil {
+		log.Warnf("Failed to ensure retention objects: %v", err)
+	}
+
 	// Create partitions for current and next months if they don't exist
 	log.Info("Creating database partitions for current month...")
 	currentTime := time.Now()
-	partitionTables := []string{"blocks", "block_headers", "handshakes", "mining_ons", "subtrees", "node_statuses"}
+	// Only node_statuses is partitioned; the rest are plain tables pruned by row DELETE.
+	partitionTables := []string{"node_statuses"}
 
 	for _, tableName := range partitionTables {
 		// Create partition for current month
@@ -214,6 +219,12 @@ func main() {
 	db.Exec(`REFRESH MATERIALIZED VIEW IF EXISTS network_activity_summary`)
 	db.Exec(`REFRESH MATERIALIZED VIEW IF EXISTS peer_activity_summary`)
 	db.Exec(`REFRESH MATERIALIZED VIEW IF EXISTS latest_block_heights`)
+
+	retentionMonths := viper.GetInt("performance.partition_retention_months")
+	if retentionMonths < 1 {
+		retentionMonths = 3
+	}
+	log.Infof("Data retention: keeping %d month(s)", retentionMonths)
 
 	// Initialize batch insert service
 	batchService := service.NewBatchInsertService(db, log, 1000, 5*time.Second)
@@ -522,22 +533,18 @@ func main() {
 		}
 	}()
 
-	// Create monthly partitions proactively
+	// Run retention (create partitions, drop old partitions, delete old rows) daily
 	go func() {
 		ticker := time.NewTicker(24 * time.Hour)
 		defer ticker.Stop()
 
-		// Run once on startup
-		if err := db.Exec("SELECT create_monthly_partitions()").Error; err != nil {
-			log.Errorf("Failed to create monthly partitions: %v", err)
-		}
+		// Run once on startup — reclaims the existing backlog immediately.
+		model.RunRetention(db, log, retentionMonths)
 
 		for {
 			select {
 			case <-ticker.C:
-				if err := db.Exec("SELECT create_monthly_partitions()").Error; err != nil {
-					log.Errorf("Failed to create monthly partitions: %v", err)
-				}
+				model.RunRetention(db, log, retentionMonths)
 			}
 		}
 	}()
