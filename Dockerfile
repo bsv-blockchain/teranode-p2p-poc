@@ -1,5 +1,8 @@
 # Build React frontend
-FROM node:18-alpine AS frontend-builder
+# Node 20+ required: serialize-javascript >=7.0.5 (security fix) uses the global
+# crypto API, which is only a global from Node 19 onward; react-router 7.x also
+# requires node >=20. Builder stage only — no effect on the runtime image.
+FROM node:20-alpine AS frontend-builder
 WORKDIR /app/frontend-react
 COPY frontend-react/package*.json ./
 RUN npm ci
