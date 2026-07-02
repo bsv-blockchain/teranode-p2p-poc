@@ -78,6 +78,78 @@ func TestEnsureAutovacuumSettings(t *testing.T) {
 	}
 }
 
+// TestEnsureAutovacuumSettingsSkipsPartitioned is the regression test for the relkind gate:
+// EnsureAutovacuumSettings must only ALTER a candidate table when it is plain (relkind='r'),
+// and must skip (not error/warn-spam) a candidate that is partitioned (relkind='p') on this
+// deployment. Candidate table names are fixed (rowPruneCandidates), so we can't substitute a
+// throwaway partitioned table under one of those names — instead this asserts both halves of
+// the gate directly against the real candidates on the current DB:
+//   - best_block_requests (plain on every deployment, including local) gets tuned: its
+//     reloptions carry the expected autovacuum_* settings.
+//   - whichever candidates are partitioned on THIS DB (subtrees, blocks, block_headers,
+//     handshakes, mining_ons — all 'p' on local docker) are confirmed via tableRelkind, and
+//     EnsureAutovacuumSettings must still return nil (no error bubbles up) despite those
+//     candidates being unalterable via this parameter on PG15. Before the relkind gate existed,
+//     the ALTER against a partitioned parent errored ("unrecognized parameter") on every one of
+//     these tables on local — this test would have surfaced that as either a returned error (if
+//     the code propagated it) or, at minimum, documents the exact skip path so a future
+//     regression that removes the gate and starts attempting (and Warnf-spamming on) the ALTER
+//     against partitioned candidates is visible in test output.
+func TestEnsureAutovacuumSettingsSkipsPartitioned(t *testing.T) {
+	db := testDB(t)
+	log := testLog()
+	db.Exec("CREATE TABLE IF NOT EXISTS best_block_requests (id bigserial primary key, network varchar(20), peer_id varchar(100), received_at timestamptz)")
+
+	// Confirm at least one real candidate is partitioned on this DB — otherwise the gate isn't
+	// exercised here and this test would pass vacuously.
+	partitionedCandidates := []string{}
+	for _, t := range rowPruneCandidates {
+		relkind, err := tableRelkind(db, t)
+		if err != nil {
+			continue
+		}
+		if relkind == "p" {
+			partitionedCandidates = append(partitionedCandidates, t)
+		}
+	}
+	if len(partitionedCandidates) == 0 {
+		t.Skip("no partitioned rowPruneCandidates on this DB; relkind gate not exercised here (expected on a plain-shape deployment)")
+	}
+
+	if err := EnsureAutovacuumSettings(db, log); err != nil {
+		t.Fatalf("EnsureAutovacuumSettings must not error even with partitioned candidates present: %v", err)
+	}
+
+	// The plain candidate must still be tuned.
+	var reloptions string
+	db.Raw(`SELECT array_to_string(reloptions, ',') FROM pg_class WHERE relname='best_block_requests'`).Scan(&reloptions)
+	if !strings.Contains(reloptions, "autovacuum_vacuum_scale_factor=0.05") {
+		t.Fatalf("expected best_block_requests (plain) to be tuned, reloptions=%q", reloptions)
+	}
+
+	// Each partitioned candidate must NOT have gained autovacuum reloptions from this call —
+	// PG15 rejects the ALTER on a partitioned parent, so if the gate were removed and the ALTER
+	// were attempted, it would error out before setting reloptions; asserting reloptions stay
+	// empty here catches any future path that silently makes the ALTER succeed on a partitioned
+	// parent without the reader realizing prod-only semantics changed.
+	for _, pt := range partitionedCandidates {
+		var relkind string
+		if k, err := tableRelkind(db, pt); err != nil {
+			t.Fatalf("tableRelkind(%s): %v", pt, err)
+		} else {
+			relkind = k
+		}
+		if relkind != "p" {
+			t.Fatalf("expected %s to still report relkind=p, got %q", pt, relkind)
+		}
+		var opts string
+		db.Raw(`SELECT array_to_string(reloptions, ',') FROM pg_class WHERE relname=?`, pt).Scan(&opts)
+		if strings.Contains(opts, "autovacuum_vacuum_scale_factor") {
+			t.Fatalf("partitioned candidate %s must be skipped by the relkind gate, but has autovacuum reloptions: %q", pt, opts)
+		}
+	}
+}
+
 func TestRunRetentionAnalyzes(t *testing.T) {
 	db := testDB(t)
 	log := testLog()
