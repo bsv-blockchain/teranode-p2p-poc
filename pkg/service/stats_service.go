@@ -259,25 +259,19 @@ func (s *StatsService) calculateNetworkActivity(topicStats []TopicStat) map[stri
 	return networkActivity
 }
 
-// countUniquePeers counts unique peers across all tables
+// statsPeerWindow bounds "active peers" stats to recent activity.
+const statsPeerWindow = 7 * 24 * time.Hour
+
+// countUniquePeers counts distinct peers seen across the peer-bearing tables in the last 7 days.
 func (s *StatsService) countUniquePeers() int {
+	cutoff := time.Now().Add(-statsPeerWindow)
 	peerMap := make(map[string]bool)
-
-	// From messages table
-	var messagePeers []string
-	if err := s.db.Table("messages").Distinct("peer").Pluck("peer", &messagePeers).Error; err == nil {
-		for _, peer := range messagePeers {
-			if peer != "" {
-				peerMap[peer] = true
-			}
-		}
-	}
-
-	// From other tables (peer_id field)
-	var peerIDs []string
-	for _, table := range []string{"blocks", "mining_ons", "subtrees", "handshakes", "best_block_requests"} {
-		peerIDs = nil
-		if err := s.db.Table(table).Distinct("peer_id").Pluck("peer_id", &peerIDs).Error; err == nil {
+	for _, table := range []string{"blocks", "mining_ons", "subtrees", "handshakes", "node_statuses", "best_block_requests"} {
+		var peerIDs []string
+		if err := s.db.Table(table).
+			Distinct("peer_id").
+			Where("received_at > ? AND peer_id <> ''", cutoff).
+			Pluck("peer_id", &peerIDs).Error; err == nil {
 			for _, peer := range peerIDs {
 				if peer != "" {
 					peerMap[peer] = true
@@ -285,7 +279,6 @@ func (s *StatsService) countUniquePeers() int {
 			}
 		}
 	}
-
 	return len(peerMap)
 }
 
@@ -317,32 +310,32 @@ func (s *StatsService) getTopPeers() []PeerSummary {
 		WITH peer_activity AS (
 			SELECT peer_id, COUNT(*) as message_count, MAX(received_at) as last_seen
 			FROM blocks
-			WHERE peer_id != ''
+			WHERE peer_id != '' AND received_at > ?
 			GROUP BY peer_id
-			
+
 			UNION ALL
-			
+
 			SELECT peer_id, COUNT(*) as message_count, MAX(received_at) as last_seen
 			FROM mining_ons
-			WHERE peer_id != ''
+			WHERE peer_id != '' AND received_at > ?
 			GROUP BY peer_id
-			
+
 			UNION ALL
-			
+
 			SELECT peer_id, COUNT(*) as message_count, MAX(received_at) as last_seen
 			FROM subtrees
-			WHERE peer_id != ''
+			WHERE peer_id != '' AND received_at > ?
 			GROUP BY peer_id
-			
+
 			UNION ALL
-			
+
 			SELECT peer_id, COUNT(*) as message_count, MAX(received_at) as last_seen
 			FROM handshakes
-			WHERE peer_id != ''
+			WHERE peer_id != '' AND received_at > ?
 			GROUP BY peer_id
-			
+
 		)
-		SELECT 
+		SELECT
 			peer_id,
 			SUM(message_count) as total_messages,
 			MAX(last_seen) as last_seen
@@ -358,8 +351,9 @@ func (s *StatsService) getTopPeers() []PeerSummary {
 		LastSeen      string // SQLite returns string for datetime
 	}
 
+	cutoff := time.Now().Add(-statsPeerWindow)
 	var peerActivities []PeerActivity
-	if err := s.db.Raw(query).Scan(&peerActivities).Error; err == nil {
+	if err := s.db.Raw(query, cutoff, cutoff, cutoff, cutoff).Scan(&peerActivities).Error; err == nil {
 		for _, pa := range peerActivities {
 			// Parse the timestamp string
 			var lastSeenTime time.Time
