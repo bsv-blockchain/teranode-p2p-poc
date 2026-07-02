@@ -567,3 +567,28 @@ func TestDropOldPartitionsGuardsInWindowBound(t *testing.T) {
 		}
 	})
 }
+
+// TestConnectionTimeoutsApplied pins the DSN param names/values Task 5 adds to cmd/main.go's
+// connection string: statement_timeout=30000 and lock_timeout=5000 (milliseconds), which pgx
+// passes as runtime GUCs. Opens its own tuned connection (independent of main.go) and asserts
+// SHOW reports them as 30s/5s.
+func TestConnectionTimeoutsApplied(t *testing.T) {
+	dsn := os.Getenv("TERANODE_P2P_TEST_DSN")
+	if dsn == "" {
+		t.Skip("TERANODE_P2P_TEST_DSN not set")
+	}
+	// Open a connection with the timeout params appended, mirroring main.go's DSN.
+	tuned, err := gorm.Open(postgres.Open(dsn+" statement_timeout=30000 lock_timeout=5000"), &gorm.Config{SkipDefaultTransaction: true})
+	if err != nil {
+		t.Fatalf("open tuned: %v", err)
+	}
+	var st, lt string
+	tuned.Raw("SHOW statement_timeout").Scan(&st)
+	tuned.Raw("SHOW lock_timeout").Scan(&lt)
+	if st != "30s" {
+		t.Fatalf("statement_timeout = %q, want 30s", st)
+	}
+	if lt != "5s" {
+		t.Fatalf("lock_timeout = %q, want 5s", lt)
+	}
+}

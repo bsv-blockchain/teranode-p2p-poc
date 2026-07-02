@@ -58,7 +58,7 @@ func main() {
 	}
 
 	// Build PostgreSQL connection string
-	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s TimeZone=UTC",
+	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s TimeZone=UTC statement_timeout=30000 lock_timeout=5000",
 		dbHost, dbPort, dbUser, dbPassword, dbName, dbSSLMode)
 
 	// Connect to PostgreSQL with optimized settings
