@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"gorm.io/driver/postgres"
@@ -55,6 +57,45 @@ func testLog() *logrus.Logger {
 	l := logrus.New()
 	l.SetLevel(logrus.WarnLevel)
 	return l
+}
+
+func TestEnsureAutovacuumSettings(t *testing.T) {
+	db := testDB(t)
+	log := testLog()
+	// best_block_requests is plain in every deployment; use it as the assertion target.
+	db.Exec("CREATE TABLE IF NOT EXISTS best_block_requests (id bigserial primary key, network varchar(20), peer_id varchar(100), received_at timestamptz)")
+
+	if err := EnsureAutovacuumSettings(db, log); err != nil {
+		t.Fatalf("EnsureAutovacuumSettings: %v", err)
+	}
+	var reloptions string
+	db.Raw(`SELECT array_to_string(reloptions, ',') FROM pg_class WHERE relname='best_block_requests'`).Scan(&reloptions)
+	if !strings.Contains(reloptions, "autovacuum_vacuum_scale_factor=0.05") {
+		t.Fatalf("expected autovacuum_vacuum_scale_factor=0.05 in reloptions, got %q", reloptions)
+	}
+	if !strings.Contains(reloptions, "autovacuum_analyze_scale_factor=0.02") {
+		t.Fatalf("expected autovacuum_analyze_scale_factor=0.02 in reloptions, got %q", reloptions)
+	}
+}
+
+func TestRunRetentionAnalyzes(t *testing.T) {
+	db := testDB(t)
+	log := testLog()
+	if err := EnsureRetentionObjects(db, log); err != nil {
+		t.Fatalf("ensure: %v", err)
+	}
+	db.Exec("CREATE TABLE IF NOT EXISTS best_block_requests (id bigserial primary key, network varchar(20), peer_id varchar(100), received_at timestamptz)")
+	db.Exec("INSERT INTO best_block_requests (network, peer_id, received_at) VALUES ('mainnet','p', now())")
+	// reset analyze stats baseline
+	db.Exec("SELECT pg_stat_reset_single_table_counters('best_block_requests'::regclass)")
+
+	RunRetention(db, log, 3)
+
+	var lastAnalyze *time.Time
+	db.Raw(`SELECT last_analyze FROM pg_stat_user_tables WHERE relname='best_block_requests'`).Scan(&lastAnalyze)
+	if lastAnalyze == nil {
+		t.Fatalf("RunRetention should have ANALYZEd best_block_requests, last_analyze is NULL")
+	}
 }
 
 func TestEnsureRetentionObjectsIdempotent(t *testing.T) {

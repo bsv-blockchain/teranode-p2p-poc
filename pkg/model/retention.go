@@ -146,6 +146,20 @@ func EnsureRetentionObjects(db *gorm.DB, log *logrus.Logger) error {
 	return nil
 }
 
+// EnsureAutovacuumSettings makes autovacuum more aggressive on the row-DELETE-pruned tables,
+// which accumulate dead tuples from retention. Idempotent; safe every boot. node_statuses is
+// excluded (pruned by dropping partitions, not row deletes; parent params don't cascade in PG15).
+func EnsureAutovacuumSettings(db *gorm.DB, log *logrus.Logger) error {
+	for _, t := range rowPruneCandidates {
+		sql := fmt.Sprintf(
+			"ALTER TABLE IF EXISTS %s SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_analyze_scale_factor = 0.02)", t)
+		if err := db.Exec(sql).Error; err != nil {
+			log.Warnf("retention: autovacuum settings on %s failed: %v", t, err)
+		}
+	}
+	return nil
+}
+
 // retentionCutoff returns the start of the month (current − (keepMonths−1)) in UTC.
 // Rows/partitions strictly older than this are pruned. keepMonths is floored at 1.
 //
@@ -291,6 +305,11 @@ func RunRetention(db *gorm.DB, log *logrus.Logger, keepMonths int) {
 	if err := deleteOldRows(db, log, keepMonths, rowPruneCandidates); err != nil {
 		log.Errorf("retention: deleteOldRows failed: %v", err)
 		ok = false
+	}
+	for _, t := range rowPruneCandidates {
+		if err := db.Exec("ANALYZE " + t).Error; err != nil { // t from fixed allowlist
+			log.Warnf("retention: ANALYZE %s failed: %v", t, err)
+		}
 	}
 	if ok {
 		log.Infof("retention: pass completed OK")

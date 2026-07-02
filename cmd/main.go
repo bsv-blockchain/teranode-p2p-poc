@@ -151,6 +151,10 @@ func main() {
 		log.Errorf("Failed to ensure retention objects: %v — retention is impaired, disk usage may grow unbounded", err)
 	}
 
+	if err := model.EnsureAutovacuumSettings(db, log); err != nil {
+		log.Warnf("Failed to ensure autovacuum settings: %v", err)
+	}
+
 	// Create partitions for current and next months if they don't exist.
 	// node_statuses is always partitioned by this app (created PARTITION BY RANGE above), so it
 	// is handled explicitly here. The other message tables' shape varies by deployment (plain in
