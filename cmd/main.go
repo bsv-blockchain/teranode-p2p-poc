@@ -208,22 +208,6 @@ func main() {
 		}
 	}
 
-	// Create unique indexes on materialized views for concurrent refresh
-	log.Info("Creating unique indexes for materialized views...")
-
-	// For network_activity_summary, we need a unique combination
-	db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_network_activity_unique
-		ON network_activity_summary(network, source_table)`)
-
-	// For peer_activity_summary, we need a unique combination
-	db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_peer_activity_unique
-		ON peer_activity_summary(peer_id, network, message_type)`)
-
-	// Refresh the materialized views initially (non-concurrent first time)
-	db.Exec(`REFRESH MATERIALIZED VIEW IF EXISTS network_activity_summary`)
-	db.Exec(`REFRESH MATERIALIZED VIEW IF EXISTS peer_activity_summary`)
-	db.Exec(`REFRESH MATERIALIZED VIEW IF EXISTS latest_block_heights`)
-
 	// Synchronously ensure current+next month partitions exist for EVERY partitioned table
 	// (relkind='p'), whatever this deployment's schema shape turns out to be — PROD has the
 	// message tables plain and only node_statuses partitioned, but migrations/001 and local
@@ -490,7 +474,7 @@ func main() {
 	}
 
 	// Initialize stats service with PostgreSQL optimizations
-	statsService := service.NewStatsServicePostgres(db, log)
+	statsService := service.NewStatsService(db, log)
 
 	// Start HTTP server for querying messages
 	go http.InitServer(log, db, statsService)
@@ -514,24 +498,6 @@ func main() {
 			case <-ticker.C:
 				if err := statsService.CalculateStats(); err != nil {
 					log.Errorf("Failed to calculate stats: %v", err)
-				}
-			}
-		}
-	}()
-
-	// Refresh materialized views periodically (every 5 minutes)
-	go func() {
-		ticker := time.NewTicker(5 * time.Minute)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ticker.C:
-				log.Info("Refreshing materialized views...")
-				if err := db.Exec("SELECT refresh_all_materialized_views()").Error; err != nil {
-					log.Errorf("Failed to refresh materialized views: %v", err)
-				} else {
-					log.Info("Materialized views refreshed successfully")
 				}
 			}
 		}
