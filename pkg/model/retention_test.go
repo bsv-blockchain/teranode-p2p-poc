@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/hooks/test"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -89,35 +90,52 @@ func TestEnsureAutovacuumSettings(t *testing.T) {
 //   - whichever candidates are partitioned on THIS DB (subtrees, blocks, block_headers,
 //     handshakes, mining_ons — all 'p' on local docker) are confirmed via tableRelkind, and
 //     EnsureAutovacuumSettings must still return nil (no error bubbles up) despite those
-//     candidates being unalterable via this parameter on PG15. Before the relkind gate existed,
-//     the ALTER against a partitioned parent errored ("unrecognized parameter") on every one of
-//     these tables on local — this test would have surfaced that as either a returned error (if
-//     the code propagated it) or, at minimum, documents the exact skip path so a future
-//     regression that removes the gate and starts attempting (and Warnf-spamming on) the ALTER
-//     against partitioned candidates is visible in test output.
+//     candidates being unalterable via this parameter on PG15.
+//
+// The gate's actual observable effect is not "reloptions stay empty" — a plain assertion on
+// reloptions passes even with the gate REMOVED, because EnsureAutovacuumSettings swallows the
+// ALTER's error via Warnf and returns nil, and a failed ALTER never writes reloptions anyway.
+// The real behavioral difference the gate makes is: no WARN-level log line is emitted for a
+// partitioned candidate (gated code skips it at Debug); with the gate removed, the ALTER is
+// attempted against every partitioned parent and errors ("unrecognized parameter" on PG15),
+// which is logged via Warnf once per partitioned candidate. So this test attaches a logrus test
+// hook and asserts ZERO WarnLevel+ entries — that's the assertion a gate-removal regression
+// actually fails.
 func TestEnsureAutovacuumSettingsSkipsPartitioned(t *testing.T) {
 	db := testDB(t)
-	log := testLog()
 	db.Exec("CREATE TABLE IF NOT EXISTS best_block_requests (id bigserial primary key, network varchar(20), peer_id varchar(100), received_at timestamptz)")
 
 	// Confirm at least one real candidate is partitioned on this DB — otherwise the gate isn't
 	// exercised here and this test would pass vacuously.
 	partitionedCandidates := []string{}
-	for _, t := range rowPruneCandidates {
-		relkind, err := tableRelkind(db, t)
+	for _, tbl := range rowPruneCandidates {
+		relkind, err := tableRelkind(db, tbl)
 		if err != nil {
 			continue
 		}
 		if relkind == "p" {
-			partitionedCandidates = append(partitionedCandidates, t)
+			partitionedCandidates = append(partitionedCandidates, tbl)
 		}
 	}
 	if len(partitionedCandidates) == 0 {
 		t.Skip("no partitioned rowPruneCandidates on this DB; relkind gate not exercised here (expected on a plain-shape deployment)")
 	}
 
+	log, hook := test.NewNullLogger()
+	log.SetLevel(logrus.DebugLevel) // capture Debug too, so hook.AllEntries() shows the skip path if this test ever needs to inspect it
+
 	if err := EnsureAutovacuumSettings(db, log); err != nil {
 		t.Fatalf("EnsureAutovacuumSettings must not error even with partitioned candidates present: %v", err)
+	}
+
+	// The behavioral assertion: with the relkind gate in place, no partitioned candidate ever
+	// reaches the ALTER, so there must be zero WARN-level (or higher) log entries. If the gate
+	// is removed, the ALTER is attempted against each partitioned parent, errors, and is logged
+	// via Warnf — this assertion catches that even though reloptions-based assertions can't.
+	for _, entry := range hook.AllEntries() {
+		if entry.Level <= logrus.WarnLevel {
+			t.Fatalf("EnsureAutovacuumSettings must not log WARN (or higher) while partitioned candidates are present; got level=%s msg=%q", entry.Level, entry.Message)
+		}
 	}
 
 	// The plain candidate must still be tuned.
