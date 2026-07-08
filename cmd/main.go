@@ -58,7 +58,7 @@ func main() {
 	}
 
 	// Build PostgreSQL connection string
-	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s TimeZone=UTC",
+	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s TimeZone=UTC statement_timeout=30000 lock_timeout=5000",
 		dbHost, dbPort, dbUser, dbPassword, dbName, dbSSLMode)
 
 	// Connect to PostgreSQL with optimized settings
@@ -151,6 +151,10 @@ func main() {
 		log.Errorf("Failed to ensure retention objects: %v — retention is impaired, disk usage may grow unbounded", err)
 	}
 
+	if err := model.EnsureAutovacuumSettings(db, log); err != nil {
+		log.Warnf("Failed to ensure autovacuum settings: %v", err)
+	}
+
 	// Create partitions for current and next months if they don't exist.
 	// node_statuses is always partitioned by this app (created PARTITION BY RANGE above), so it
 	// is handled explicitly here. The other message tables' shape varies by deployment (plain in
@@ -207,22 +211,6 @@ func main() {
 			log.Warnf("Failed to create next partition %s: %v", nextPartitionName, err)
 		}
 	}
-
-	// Create unique indexes on materialized views for concurrent refresh
-	log.Info("Creating unique indexes for materialized views...")
-
-	// For network_activity_summary, we need a unique combination
-	db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_network_activity_unique
-		ON network_activity_summary(network, source_table)`)
-
-	// For peer_activity_summary, we need a unique combination
-	db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_peer_activity_unique
-		ON peer_activity_summary(peer_id, network, message_type)`)
-
-	// Refresh the materialized views initially (non-concurrent first time)
-	db.Exec(`REFRESH MATERIALIZED VIEW IF EXISTS network_activity_summary`)
-	db.Exec(`REFRESH MATERIALIZED VIEW IF EXISTS peer_activity_summary`)
-	db.Exec(`REFRESH MATERIALIZED VIEW IF EXISTS latest_block_heights`)
 
 	// Synchronously ensure current+next month partitions exist for EVERY partitioned table
 	// (relkind='p'), whatever this deployment's schema shape turns out to be — PROD has the
@@ -490,7 +478,7 @@ func main() {
 	}
 
 	// Initialize stats service with PostgreSQL optimizations
-	statsService := service.NewStatsServicePostgres(db, log)
+	statsService := service.NewStatsService(db, log)
 
 	// Start HTTP server for querying messages
 	go http.InitServer(log, db, statsService)
@@ -514,24 +502,6 @@ func main() {
 			case <-ticker.C:
 				if err := statsService.CalculateStats(); err != nil {
 					log.Errorf("Failed to calculate stats: %v", err)
-				}
-			}
-		}
-	}()
-
-	// Refresh materialized views periodically (every 5 minutes)
-	go func() {
-		ticker := time.NewTicker(5 * time.Minute)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ticker.C:
-				log.Info("Refreshing materialized views...")
-				if err := db.Exec("SELECT refresh_all_materialized_views()").Error; err != nil {
-					log.Errorf("Failed to refresh materialized views: %v", err)
-				} else {
-					log.Info("Materialized views refreshed successfully")
 				}
 			}
 		}

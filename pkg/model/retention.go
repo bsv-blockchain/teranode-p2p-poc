@@ -146,6 +146,46 @@ func EnsureRetentionObjects(db *gorm.DB, log *logrus.Logger) error {
 	return nil
 }
 
+// EnsureAutovacuumSettings makes autovacuum more aggressive on the row-DELETE-pruned tables,
+// which accumulate dead tuples from retention. Idempotent; safe every boot. node_statuses is
+// excluded (pruned by dropping partitions, not row deletes).
+//
+// Each candidate is gated on its runtime relkind (see tableRelkind): the ALTER only ever runs
+// against a plain table (relkind='r'). On PG15, `ALTER TABLE ... SET (autovacuum_*)` against a
+// PARTITIONED parent (relkind='p') ERRORS ("unrecognized parameter") — it does NOT succeed
+// harmlessly — so a partitioned candidate is skipped rather than attempted. On PROD, all six
+// rowPruneCandidates are plain, so all get tuned; on deployments where they're partitioned
+// (migrations/001, local docker), tuning is skipped since those tables are pruned by dropping
+// whole partitions and don't accumulate the same per-row dead-tuple churn.
+func EnsureAutovacuumSettings(db *gorm.DB, log *logrus.Logger) error {
+	for _, t := range rowPruneCandidates {
+		relkind, err := tableRelkind(db, t)
+		if err != nil {
+			log.Warnf("retention: checking relkind for %s failed: %v", t, err)
+			continue
+		}
+		if relkind == "" {
+			log.Debugf("retention: autovacuum tuning skipped %s (does not exist)", t)
+			continue
+		}
+		if relkind != "r" {
+			log.Debugf("retention: autovacuum tuning skipped %s (not a plain table, relkind=%s)", t, relkind)
+			continue
+		}
+		if !validTableName.MatchString(t) {
+			log.Errorf("retention: table name %q does not match %s, skipping autovacuum tuning", t, validTableName.String())
+			continue
+		}
+
+		sql := fmt.Sprintf(
+			"ALTER TABLE %s SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_analyze_scale_factor = 0.02)", t)
+		if err := db.Exec(sql).Error; err != nil {
+			log.Warnf("retention: autovacuum settings on %s failed: %v", t, err)
+		}
+	}
+	return nil
+}
+
 // retentionCutoff returns the start of the month (current − (keepMonths−1)) in UTC.
 // Rows/partitions strictly older than this are pruned. keepMonths is floored at 1.
 //
@@ -291,6 +331,15 @@ func RunRetention(db *gorm.DB, log *logrus.Logger, keepMonths int) {
 	if err := deleteOldRows(db, log, keepMonths, rowPruneCandidates); err != nil {
 		log.Errorf("retention: deleteOldRows failed: %v", err)
 		ok = false
+	}
+	for _, t := range rowPruneCandidates {
+		if !validTableName.MatchString(t) {
+			log.Errorf("retention: table name %q does not match %s, skipping ANALYZE", t, validTableName.String())
+			continue
+		}
+		if err := db.Exec("ANALYZE " + t).Error; err != nil { // t from fixed allowlist
+			log.Warnf("retention: ANALYZE %s failed: %v", t, err)
+		}
 	}
 	if ok {
 		log.Infof("retention: pass completed OK")

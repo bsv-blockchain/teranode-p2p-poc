@@ -41,7 +41,28 @@ func enableCORS(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+// healthHandler is a cheap liveness/readiness probe: pings the DB, returns 200/503.
+func healthHandler(db *gorm.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		sqlDB, err := db.DB()
+		if err == nil {
+			err = sqlDB.Ping()
+		}
+		if err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			json.NewEncoder(w).Encode(map[string]string{"status": "unhealthy"})
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	}
+}
+
 func InitServer(log *logrus.Logger, db *gorm.DB, statsService *service.StatsService) {
+	// Health probe endpoint - cheap DB ping, no CORS needed (internal probe)
+	http.HandleFunc("/health", healthHandler(db))
+
 	// WebSocket endpoint
 	http.HandleFunc("/api/ws", func(w http.ResponseWriter, r *http.Request) {
 		upgrader := websocket.Upgrader{

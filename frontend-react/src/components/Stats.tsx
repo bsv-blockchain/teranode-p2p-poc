@@ -139,7 +139,7 @@ const Stats: React.FC = () => {
               <span className="text-3xl">📨</span>
             </div>
             <div className="text-3xl font-bold">{stats.totalMessages.toLocaleString()}</div>
-            <div className="text-sm text-white/80 mt-2">All time</div>
+            <div className="text-sm text-white/80 mt-2">Last 3 months</div>
           </div>
 
           <div className="bg-gradient-to-br from-[#FF2DAF] to-[#FF2DAF]/90 rounded-2xl p-6 text-white shadow-xl transform hover:scale-105 transition-transform">
