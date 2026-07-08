@@ -62,7 +62,7 @@ const Strip: React.FC<StripProps> = ({ networks, totalNodes, totalHealthy, total
     { k: 'Networks', v: String(networks), meta: 'tracked' },
     { k: 'Teranodes online', v: `${totalHealthy}/${totalNodes}`, meta: 'healthy / total' },
     { k: 'Active peers', v: totalPeers ? fmt(totalPeers) : '—', meta: 'across all nets' },
-    { k: 'P2P messages', v: totalMessages ? fmtCompact(totalMessages) : '—', meta: 'all-time' },
+    { k: 'P2P messages', v: totalMessages ? fmtCompact(totalMessages) : '—', meta: 'last 3mo' },
   ];
   return (
     <section className="tn-strip">

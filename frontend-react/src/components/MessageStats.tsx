@@ -81,7 +81,7 @@ const MessageStatsComponent: React.FC<MessageStatsProps> = ({ className = '' }) 
       value: stats.totalMessages.toLocaleString(),
       icon: '📨',
       color: 'blue',
-      subtitle: 'Total messages of all time since July 23, 2025'
+      subtitle: 'Total messages over the last 3 months (retention window)'
     },
     {
       title: 'Unique Topics',
